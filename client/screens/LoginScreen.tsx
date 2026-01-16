@@ -76,11 +76,13 @@ export default function LoginScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.header}>
-        <Image
-          source={require("../../assets/images/icon.png")}
-          style={styles.logo}
-          contentFit="contain"
-        />
+        <View style={styles.logoContainer}>
+          <Image
+            source={require("../../assets/images/icon.png")}
+            style={styles.logo}
+            contentFit="cover"
+          />
+        </View>
         <ThemedText type="h2" style={[styles.title, { color: theme.primary }]}>
           SouqLink
         </ThemedText>
@@ -266,10 +268,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: Spacing["2xl"],
   },
-  logo: {
-    width: 80,
-    height: 80,
+  logoContainer: {
+    width: 88,
+    height: 88,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
     marginBottom: Spacing.lg,
+  },
+  logo: {
+    width: 88,
+    height: 88,
   },
   title: {
     marginBottom: Spacing.xs,
