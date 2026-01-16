@@ -80,6 +80,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update user profile
+  app.put("/api/users/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { name, phone } = req.body;
+      
+      const updates: { name?: string; phone?: string } = {};
+      if (name) updates.name = name;
+      if (phone !== undefined) updates.phone = phone;
+      
+      const user = await storage.updateUser(id, updates);
+      res.json(user);
+    } catch (error) {
+      console.error("Update user error:", error);
+      res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
+  // Get courier stats
+  app.get("/api/couriers/:id/stats", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const stats = await storage.getCourierStats(id);
+      res.json(stats);
+    } catch (error) {
+      console.error("Get courier stats error:", error);
+      res.status(500).json({ error: "Failed to get courier stats" });
+    }
+  });
+
   // Products routes
   app.get("/api/products", async (_req: Request, res: Response) => {
     try {

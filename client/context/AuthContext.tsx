@@ -17,6 +17,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, name: string, phone: string, role?: UserRole) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
   isAdmin: boolean;
   isCourier: boolean;
   isCustomer: boolean;
@@ -73,11 +74,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const refreshUser = async () => {
+    try {
+      const storedUser = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        const response = await apiRequest("POST", "/api/auth/login", {
+          email: userData.email,
+          name: userData.name,
+          phone: userData.phone,
+          role: userData.role,
+        });
+        const updatedUser = await response.json();
+        setUser(updatedUser);
+        await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
+      }
+    } catch (error) {
+      console.error("Failed to refresh user:", error);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     isLoading,
     login,
     logout,
+    refreshUser,
     isAdmin: user?.role === "admin",
     isCourier: user?.role === "courier",
     isCustomer: user?.role === "customer",

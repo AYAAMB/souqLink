@@ -157,6 +157,26 @@ export class DatabaseStorage implements IStorage {
     if (items.length === 0) return [];
     return db.insert(orderItems).values(items).returning();
   }
+
+  async getCourierStats(courierId: string): Promise<{
+    totalDeliveries: number;
+    completedDeliveries: number;
+    totalEarnings: number;
+    averageRating: number;
+  }> {
+    const courierOrders = await db.select().from(orders).where(eq(orders.courierId, courierId));
+    
+    const totalDeliveries = courierOrders.length;
+    const completedDeliveries = courierOrders.filter(o => o.status === "delivered").length;
+    const totalEarnings = completedDeliveries * 15; // 15 MAD per delivery
+    
+    return {
+      totalDeliveries,
+      completedDeliveries,
+      totalEarnings,
+      averageRating: 4.8, // Placeholder - could implement ratings later
+    };
+  }
 }
 
 export const storage = new DatabaseStorage();
