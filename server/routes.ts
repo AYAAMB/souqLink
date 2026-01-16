@@ -43,6 +43,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Email and name are required" });
       }
 
+      // Check if admin email
+      const isAdminEmail = email.toLowerCase() === "admin@souqlink.com";
+      const effectiveRole = isAdminEmail ? "admin" : (role || "customer");
+
       // Check if user exists
       let user = await storage.getUserByEmail(email);
 
@@ -52,9 +56,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           email,
           name,
           phone: phone || null,
-          role: role || "customer",
+          role: effectiveRole,
         });
-      } else if (role && user.role !== role && user.role !== "admin") {
+      } else if (isAdminEmail && user.role !== "admin") {
+        // Fix admin account if it was wrongly created as another role
+        user = await storage.updateUser(user.id, { role: "admin" });
+      } else if (!isAdminEmail && role && user.role !== role && user.role !== "admin") {
         // If existing user has different role, show error
         const roleNames: Record<string, string> = {
           customer: "client",
