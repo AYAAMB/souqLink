@@ -54,6 +54,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           phone: phone || null,
           role: role || "customer",
         });
+      } else if (role && user.role !== role && user.role !== "admin") {
+        // If existing user has different role, show error
+        const roleNames: Record<string, string> = {
+          customer: "client",
+          courier: "livreur",
+          admin: "administrateur"
+        };
+        return res.status(400).json({ 
+          error: `Ce compte existe déjà en tant que ${roleNames[user.role] || user.role}. Utilisez un autre email ou connectez-vous avec le bon rôle.`
+        });
       }
 
       res.json(user);
