@@ -3,7 +3,7 @@ import { View, StyleSheet, Image } from "react-native";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing } from "@/constants/theme";
+import { BorderRadius, Spacing } from "@/constants/theme";
 
 interface HeaderTitleProps {
   title: string;
@@ -14,11 +14,13 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
 
   return (
     <View style={styles.container}>
-      <Image
-        source={require("../../assets/images/icon.png")}
-        style={styles.icon}
-        resizeMode="contain"
-      />
+      <View style={styles.iconContainer}>
+        <Image
+          source={require("../../assets/images/icon.png")}
+          style={styles.icon}
+          resizeMode="cover"
+        />
+      </View>
       <ThemedText style={[styles.title, { color: theme.primary }]}>{title}</ThemedText>
     </View>
   );
@@ -30,13 +32,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "flex-start",
   },
-  icon: {
-    width: 28,
-    height: 28,
+  iconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: BorderRadius.sm,
+    overflow: "hidden",
     marginRight: Spacing.sm,
   },
+  icon: {
+    width: 32,
+    height: 32,
+  },
   title: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "700",
   },
 });
