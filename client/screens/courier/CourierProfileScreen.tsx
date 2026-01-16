@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { StyleSheet, View, Pressable, Alert, TextInput, Modal, Platform } from "react-native";
+import { StyleSheet, View, Pressable, Alert, TextInput, Modal, Platform, ScrollView, FlatList, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -14,6 +14,15 @@ import { useAuth } from "@/context/AuthContext";
 import { BorderRadius, Spacing } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
+interface Order {
+  id: string;
+  orderType: string;
+  status: string;
+  totalAmount: number;
+  createdAt: string;
+  deliveryAddress: string;
+}
+
 export default function CourierProfileScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
@@ -22,6 +31,8 @@ export default function CourierProfileScreen() {
   const { user, logout, refreshUser } = useAuth();
 
   const [editModalVisible, setEditModalVisible] = useState(false);
+  const [historyModalVisible, setHistoryModalVisible] = useState(false);
+  const [helpModalVisible, setHelpModalVisible] = useState(false);
   const [editName, setEditName] = useState(user?.name || "");
   const [editPhone, setEditPhone] = useState(user?.phone || "");
 
@@ -34,6 +45,13 @@ export default function CourierProfileScreen() {
     queryKey: [`/api/couriers/stats/${user?.email}`],
     enabled: !!user?.email,
   });
+
+  const { data: deliveryHistory = [] } = useQuery<Order[]>({
+    queryKey: [`/api/orders/courier/${user?.email}`],
+    enabled: !!user?.email && historyModalVisible,
+  });
+
+  const completedDeliveries = deliveryHistory.filter(o => o.status === "delivered");
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: { name: string; phone: string }) => {
@@ -167,7 +185,7 @@ export default function CourierProfileScreen() {
             <Feather name="chevron-right" size={20} color={theme.textSecondary} />
           </Pressable>
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <Pressable style={styles.menuItem}>
+          <Pressable style={styles.menuItem} onPress={() => setHistoryModalVisible(true)}>
             <Feather name="clock" size={20} color={theme.text} />
             <ThemedText type="body" style={styles.menuText}>
               Historique des livraisons
@@ -175,7 +193,7 @@ export default function CourierProfileScreen() {
             <Feather name="chevron-right" size={20} color={theme.textSecondary} />
           </Pressable>
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <Pressable style={styles.menuItem}>
+          <Pressable style={styles.menuItem} onPress={() => setHelpModalVisible(true)}>
             <Feather name="help-circle" size={20} color={theme.text} />
             <ThemedText type="body" style={styles.menuText}>
               Aide et support
@@ -246,6 +264,152 @@ export default function CourierProfileScreen() {
                 {updateProfileMutation.isPending ? "Enregistrement..." : "Enregistrer"}
               </Button>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={historyModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setHistoryModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContentFull, { backgroundColor: theme.backgroundDefault }]}>
+            <View style={styles.modalHeader}>
+              <ThemedText type="h4">Historique des livraisons</ThemedText>
+              <Pressable onPress={() => setHistoryModalVisible(false)}>
+                <Feather name="x" size={24} color={theme.text} />
+              </Pressable>
+            </View>
+
+            {completedDeliveries.length > 0 ? (
+              <FlatList
+                data={completedDeliveries}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <View style={[styles.historyItem, { backgroundColor: theme.backgroundRoot }]}>
+                    <View style={styles.historyHeader}>
+                      <View style={[styles.orderTypeBadge, { backgroundColor: item.orderType === "souq" ? theme.accent + "20" : theme.primary + "20" }]}>
+                        <Feather 
+                          name={item.orderType === "souq" ? "shopping-bag" : "shopping-cart"} 
+                          size={14} 
+                          color={item.orderType === "souq" ? theme.accent : theme.primary} 
+                        />
+                        <ThemedText type="small" style={{ marginLeft: Spacing.xs, color: item.orderType === "souq" ? theme.accent : theme.primary }}>
+                          {item.orderType === "souq" ? "Souq" : "Supermarché"}
+                        </ThemedText>
+                      </View>
+                      <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                        {new Date(item.createdAt).toLocaleDateString("fr-FR")}
+                      </ThemedText>
+                    </View>
+                    <ThemedText type="body" numberOfLines={1} style={{ marginTop: Spacing.sm }}>
+                      {item.deliveryAddress}
+                    </ThemedText>
+                    <ThemedText type="body" style={{ color: theme.primary, marginTop: Spacing.xs }}>
+                      {item.totalAmount} MAD
+                    </ThemedText>
+                  </View>
+                )}
+                contentContainerStyle={{ paddingBottom: Spacing.xl }}
+                showsVerticalScrollIndicator={false}
+              />
+            ) : (
+              <View style={styles.emptyState}>
+                <Feather name="package" size={48} color={theme.textSecondary} />
+                <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.md, textAlign: "center" }}>
+                  Aucune livraison effectuée pour le moment
+                </ThemedText>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={helpModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setHelpModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContentFull, { backgroundColor: theme.backgroundDefault }]}>
+            <View style={styles.modalHeader}>
+              <ThemedText type="h4">Aide et support</ThemedText>
+              <Pressable onPress={() => setHelpModalVisible(false)}>
+                <Feather name="x" size={24} color={theme.text} />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={[styles.helpSection, { backgroundColor: theme.backgroundRoot }]}>
+                <Feather name="phone" size={24} color={theme.primary} />
+                <View style={styles.helpContent}>
+                  <ThemedText type="h4">Contactez-nous</ThemedText>
+                  <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
+                    Notre équipe est disponible 7j/7
+                  </ThemedText>
+                  <Pressable 
+                    style={[styles.helpButton, { backgroundColor: theme.primary }]}
+                    onPress={() => Linking.openURL("tel:+212600000000")}
+                  >
+                    <ThemedText type="body" style={{ color: "#FFFFFF" }}>Appeler le support</ThemedText>
+                  </Pressable>
+                </View>
+              </View>
+
+              <View style={[styles.helpSection, { backgroundColor: theme.backgroundRoot }]}>
+                <Feather name="mail" size={24} color={theme.accent} />
+                <View style={styles.helpContent}>
+                  <ThemedText type="h4">Email</ThemedText>
+                  <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
+                    support@souqlink.ma
+                  </ThemedText>
+                  <Pressable 
+                    style={[styles.helpButton, { backgroundColor: theme.accent }]}
+                    onPress={() => Linking.openURL("mailto:support@souqlink.ma")}
+                  >
+                    <ThemedText type="body" style={{ color: "#FFFFFF" }}>Envoyer un email</ThemedText>
+                  </Pressable>
+                </View>
+              </View>
+
+              <View style={[styles.helpSection, { backgroundColor: theme.backgroundRoot }]}>
+                <Feather name="message-circle" size={24} color={theme.primary} />
+                <View style={styles.helpContent}>
+                  <ThemedText type="h4">FAQ</ThemedText>
+                  <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
+                    Consultez nos questions fréquentes
+                  </ThemedText>
+                </View>
+              </View>
+
+              <View style={{ marginTop: Spacing.lg }}>
+                <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>Questions fréquentes</ThemedText>
+                
+                <View style={[styles.faqItem, { backgroundColor: theme.backgroundRoot }]}>
+                  <ThemedText type="body" style={{ fontWeight: "600" }}>Comment accepter une livraison ?</ThemedText>
+                  <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
+                    Dans l'onglet "Livraisons", vous verrez les commandes disponibles. Appuyez sur "Accepter" pour prendre en charge une livraison.
+                  </ThemedText>
+                </View>
+
+                <View style={[styles.faqItem, { backgroundColor: theme.backgroundRoot }]}>
+                  <ThemedText type="body" style={{ fontWeight: "600" }}>Comment voir mes gains ?</ThemedText>
+                  <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
+                    Vos gains totaux sont affichés dans la section "Mes statistiques" de votre profil.
+                  </ThemedText>
+                </View>
+
+                <View style={[styles.faqItem, { backgroundColor: theme.backgroundRoot }]}>
+                  <ThemedText type="body" style={{ fontWeight: "600" }}>Comment utiliser la navigation ?</ThemedText>
+                  <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
+                    Après avoir accepté une livraison, appuyez sur "Naviguer" pour ouvrir l'itinéraire vers l'adresse de livraison.
+                  </ThemedText>
+                </View>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -370,5 +534,57 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
+  },
+  modalContentFull: {
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    paddingBottom: Spacing["3xl"],
+    maxHeight: "80%",
+  },
+  historyItem: {
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+  },
+  historyHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  orderTypeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing["3xl"],
+  },
+  helpSection: {
+    flexDirection: "row",
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+  },
+  helpContent: {
+    flex: 1,
+    marginLeft: Spacing.lg,
+  },
+  helpButton: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.md,
+    alignItems: "center",
+  },
+  faqItem: {
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
   },
 });
