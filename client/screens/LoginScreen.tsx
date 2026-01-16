@@ -49,8 +49,12 @@ export default function LoginScreen() {
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-    } catch (error) {
-      Alert.alert("Erreur", "Echec de connexion. Veuillez réessayer.");
+    } catch (error: any) {
+      let errorMessage = "Echec de connexion. Veuillez réessayer.";
+      if (error?.message) {
+        errorMessage = error.message;
+      }
+      Alert.alert("Erreur", errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -130,73 +134,71 @@ export default function LoginScreen() {
         </Pressable>
       </View>
 
-      {authMode === "register" ? (
-        <View style={styles.userTypeSelector}>
-          <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
-            Je suis:
-          </ThemedText>
-          <View style={styles.userTypeRow}>
-            <Pressable
-              onPress={() => setUserType("customer")}
-              style={[
-                styles.userTypeButton,
-                {
-                  backgroundColor: userType === "customer" ? theme.primary : theme.backgroundDefault,
-                  borderColor: userType === "customer" ? theme.primary : theme.border,
-                },
-              ]}
+      <View style={styles.userTypeSelector}>
+        <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+          {authMode === "register" ? "Je suis:" : "Me connecter en tant que:"}
+        </ThemedText>
+        <View style={styles.userTypeRow}>
+          <Pressable
+            onPress={() => setUserType("customer")}
+            style={[
+              styles.userTypeButton,
+              {
+                backgroundColor: userType === "customer" ? theme.primary : theme.backgroundDefault,
+                borderColor: userType === "customer" ? theme.primary : theme.border,
+              },
+            ]}
+          >
+            <ThemedText
+              type="body"
+              style={{
+                color: userType === "customer" ? "#FFFFFF" : theme.text,
+                fontWeight: "600",
+              }}
             >
-              <ThemedText
-                type="body"
-                style={{
-                  color: userType === "customer" ? "#FFFFFF" : theme.text,
-                  fontWeight: "600",
-                }}
-              >
-                Client
-              </ThemedText>
-              <ThemedText
-                type="small"
-                style={{
-                  color: userType === "customer" ? "rgba(255,255,255,0.8)" : theme.textSecondary,
-                  marginTop: Spacing.xs,
-                }}
-              >
-                Commander des courses
-              </ThemedText>
-            </Pressable>
-            <Pressable
-              onPress={() => setUserType("courier")}
-              style={[
-                styles.userTypeButton,
-                {
-                  backgroundColor: userType === "courier" ? theme.accent : theme.backgroundDefault,
-                  borderColor: userType === "courier" ? theme.accent : theme.border,
-                },
-              ]}
+              Client
+            </ThemedText>
+            <ThemedText
+              type="small"
+              style={{
+                color: userType === "customer" ? "rgba(255,255,255,0.8)" : theme.textSecondary,
+                marginTop: Spacing.xs,
+              }}
             >
-              <ThemedText
-                type="body"
-                style={{
-                  color: userType === "courier" ? "#FFFFFF" : theme.text,
-                  fontWeight: "600",
-                }}
-              >
-                Livreur
-              </ThemedText>
-              <ThemedText
-                type="small"
-                style={{
-                  color: userType === "courier" ? "rgba(255,255,255,0.8)" : theme.textSecondary,
-                  marginTop: Spacing.xs,
-                }}
-              >
-                Effectuer des livraisons
-              </ThemedText>
-            </Pressable>
-          </View>
+              Commander des courses
+            </ThemedText>
+          </Pressable>
+          <Pressable
+            onPress={() => setUserType("courier")}
+            style={[
+              styles.userTypeButton,
+              {
+                backgroundColor: userType === "courier" ? theme.accent : theme.backgroundDefault,
+                borderColor: userType === "courier" ? theme.accent : theme.border,
+              },
+            ]}
+          >
+            <ThemedText
+              type="body"
+              style={{
+                color: userType === "courier" ? "#FFFFFF" : theme.text,
+                fontWeight: "600",
+              }}
+            >
+              Livreur
+            </ThemedText>
+            <ThemedText
+              type="small"
+              style={{
+                color: userType === "courier" ? "rgba(255,255,255,0.8)" : theme.textSecondary,
+                marginTop: Spacing.xs,
+              }}
+            >
+              Effectuer des livraisons
+            </ThemedText>
+          </Pressable>
         </View>
-      ) : null}
+      </View>
 
       <View style={styles.form}>
         <Input

@@ -15,7 +15,16 @@ export function getApiUrl(): string {
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    let errorMessage = text;
+    try {
+      const errorJson = JSON.parse(text);
+      if (errorJson.error) {
+        errorMessage = errorJson.error;
+      }
+    } catch {
+      // If parsing fails, use the raw text
+    }
+    throw new Error(errorMessage);
   }
 }
 
