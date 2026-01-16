@@ -1,0 +1,105 @@
+Tu es un développeur full-stack senior + UX/UI designer. 
+Construis une application web/mobile responsive appelée “SouqLink” (MVP), en gardant l’essentiel : le service “Souq” (livraison marchandise) MAIS en ajoutant un changement radical : l’app doit gérer plusieurs types de demandes de livraison.
+
+Objectif :
+Une seule app pour :
+1) Souq (marchandises / boutiques)
+2) Parapharmacie
+3) Pharmacie
+4) Market / Supermarché
+5) Courses (liste d’articles)
+6) Mission spécifique (ex: “Prendre un colis à cette adresse et le livrer au client”)
+
+Rôles :
+- Client (crée une commande / mission)
+- Livreur (voit, accepte, suit, livre)
+- Admin (gestion basique des catégories, commandes, livreurs)
+
+Expérience utilisateur (UX) :
+- Onboarding simple (téléphone/email + code)
+- Écran d’accueil : cartes “Souq / Pharmacie / Parapharmacie / Market / Courses / Mission”
+- Flow “Créer une demande” en 3 étapes : 
+  (1) Type de service 
+  (2) Détails + message au livreur 
+  (3) Adresses + paiement + confirmation
+- Ajoute un champ clé : “Message au livreur” (instructions libres) dans TOUS les services.
+- Pour “Courses”, permettre une liste d’articles (ajout/suppression, quantité, note par article).
+- Pour “Mission spécifique”, permettre : 
+  - Adresse de collecte (pickup) + adresse de livraison (dropoff)
+  - contact pickup (optionnel)
+  - description libre + photo optionnelle (si facile)
+- Suivi commande : statut (Créée → Acceptée → En cours → Arrivé pickup → En route → Livrée → Annulée)
+- Notifications in-app (minimum) + page historique
+
+Écrans minimum :
+Client :
+- Home (choix service)
+- Création commande (wizard)
+- Tracking + carte (si possible sinon timeline)
+- Historique + détails
+- Profil + adresses sauvegardées
+Livreur :
+- Tableau “Demandes disponibles”
+- Détails demande + bouton “Accepter”
+- Mes livraisons (en cours / terminées)
+- Mise à jour statut (boutons rapides)
+Admin :
+- Liste commandes + filtres
+- Liste livreurs + statut
+- Paramètres catégories (activer/désactiver)
+- Support minimal (notes/flags)
+
+Design moderne :
+- Style clean, minimal, très lisible
+- Couleurs neutres + couleur principale (accent)
+- Cartes arrondies, icônes, micro-animations légères
+- Mobile-first, navigation bas barre (Home, Commandes, Profil)
+- Composants UI cohérents (inputs, buttons, modals, toasts)
+
+Stack (propose une stack simple et efficace) :
+- Front : React + TypeScript + Tailwind (ou Next.js si préférable)
+- Back : Node/Express ou Next API routes
+- DB : SQLite (MVP) ou Postgres si dispo
+- Auth : simple (email/phone + OTP mock si nécessaire)
+- Architecture claire : models / routes / services
+- Prévois seed data pour tester
+
+Données / Modèle (à implémenter) :
+- User {id, role, name, phone/email}
+- Address {id, userId, label, fullAddress, lat?, lng?}
+- Order {
+  id, userId, serviceType(enum),
+  title, details, messageToDriver,
+  items[] (pour Courses),
+  pickupAddress, dropoffAddress,
+  priceEstimate, status, assignedDriverId,
+  createdAt
+}
+- Item {name, qty, note}
+
+Fonctionnalités MVP obligatoires :
+- Création commande pour chaque service
+- Message au livreur dans le formulaire
+- Côté livreur : voir/filtrer, accepter, changer statut
+- Historique client + détails
+- Admin simple (liste + filtres)
+- Validation des formulaires + gestion erreurs
+- UI très propre + responsive
+
+Livrables attendus :
+1) Projet complet exécutable
+2) README avec instructions run
+3) Données de test (seed)
+4) Parcours utilisateur démontrable (Client + Livreur)
+
+Contraintes :
+- Ne supprime pas “Souq” : c’est le service principal.
+- Ajoute les autres services comme modules.
+- Priorise une UX fluide et un design moderne.
+- Code propre, structuré, comments utiles.
+
+Commence par proposer :
+- l’architecture
+- les pages/routes
+- le schéma DB
+Puis génère le code complet.

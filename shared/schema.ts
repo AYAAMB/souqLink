@@ -49,6 +49,16 @@ export const orders = pgTable("orders", {
   budgetEnabled: boolean("budget_enabled").default(false),
   budgetMax: decimal("budget_max", { precision: 10, scale: 2 }),
   preferredTimeWindow: text("preferred_time_window"), // morning | afternoon | evening
+  // Geolocation fields
+  pickupLat: decimal("pickup_lat", { precision: 10, scale: 7 }),
+  pickupLng: decimal("pickup_lng", { precision: 10, scale: 7 }),
+  pickupAddress: text("pickup_address"),
+  dropoffLat: decimal("dropoff_lat", { precision: 10, scale: 7 }),
+  dropoffLng: decimal("dropoff_lng", { precision: 10, scale: 7 }),
+  // Courier position (updated during delivery)
+  courierLat: decimal("courier_lat", { precision: 10, scale: 7 }),
+  courierLng: decimal("courier_lng", { precision: 10, scale: 7 }),
+  courierLastUpdate: timestamp("courier_last_update"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

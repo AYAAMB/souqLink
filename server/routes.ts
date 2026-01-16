@@ -254,6 +254,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update courier location
+  app.post("/api/orders/:id/courier-location", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { lat, lng } = req.body;
+
+      if (lat === undefined || lng === undefined) {
+        return res.status(400).json({ error: "Latitude and longitude are required" });
+      }
+
+      const order = await storage.updateOrder(id, {
+        courierLat: lat.toString(),
+        courierLng: lng.toString(),
+        courierLastUpdate: new Date(),
+      });
+
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      res.json({ success: true, order });
+    } catch (error) {
+      console.error("Update courier location error:", error);
+      res.status(500).json({ error: "Failed to update courier location" });
+    }
+  });
+
+  // Get order tracking data (includes courier location)
+  app.get("/api/orders/:id/tracking", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const order = await storage.getOrder(id);
+
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Get courier info if assigned
+      let courier = null;
+      if (order.assignedCourierEmail) {
+        courier = await storage.getUserByEmail(order.assignedCourierEmail);
+      }
+
+      res.json({
+        orderId: order.id,
+        status: order.status,
+        pickup: {
+          address: order.pickupAddress || "Supermarché local",
+          lat: order.pickupLat ? parseFloat(order.pickupLat) : 33.5731,
+          lng: order.pickupLng ? parseFloat(order.pickupLng) : -7.5898,
+        },
+        dropoff: {
+          address: order.deliveryAddress,
+          lat: order.dropoffLat ? parseFloat(order.dropoffLat) : 33.5831,
+          lng: order.dropoffLng ? parseFloat(order.dropoffLng) : -7.5998,
+        },
+        courier: order.assignedCourierEmail ? {
+          name: courier?.name || "Livreur",
+          phone: courier?.phone || null,
+          lat: order.courierLat ? parseFloat(order.courierLat) : null,
+          lng: order.courierLng ? parseFloat(order.courierLng) : null,
+          lastUpdate: order.courierLastUpdate,
+        } : null,
+        orderType: order.orderType,
+        createdAt: order.createdAt,
+      });
+    } catch (error) {
+      console.error("Get tracking error:", error);
+      res.status(500).json({ error: "Failed to get tracking data" });
+    }
+  });
+
   // Admin stats route
   app.get("/api/admin/stats", async (_req: Request, res: Response) => {
     try {
