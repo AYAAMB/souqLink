@@ -98,11 +98,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get courier stats
-  app.get("/api/couriers/:id/stats", async (req: Request, res: Response) => {
+  // Get courier stats by email
+  app.get("/api/couriers/stats/:email", async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
-      const stats = await storage.getCourierStats(id);
+      const { email } = req.params;
+      const stats = await storage.getCourierStats(email);
       res.json(stats);
     } catch (error) {
       console.error("Get courier stats error:", error);

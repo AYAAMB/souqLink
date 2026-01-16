@@ -158,13 +158,13 @@ export class DatabaseStorage implements IStorage {
     return db.insert(orderItems).values(items).returning();
   }
 
-  async getCourierStats(courierId: string): Promise<{
+  async getCourierStats(courierEmail: string): Promise<{
     totalDeliveries: number;
     completedDeliveries: number;
     totalEarnings: number;
     averageRating: number;
   }> {
-    const courierOrders = await db.select().from(orders).where(eq(orders.courierId, courierId));
+    const courierOrders = await db.select().from(orders).where(eq(orders.assignedCourierEmail, courierEmail));
     
     const totalDeliveries = courierOrders.length;
     const completedDeliveries = courierOrders.filter(o => o.status === "delivered").length;

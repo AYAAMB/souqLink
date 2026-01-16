@@ -31,8 +31,8 @@ export default function CourierProfileScreen() {
     totalEarnings: number;
     averageRating: number;
   }>({
-    queryKey: ["/api/couriers", user?.id, "stats"],
-    enabled: !!user?.id,
+    queryKey: [`/api/couriers/stats/${user?.email}`],
+    enabled: !!user?.email,
   });
 
   const updateProfileMutation = useMutation({
@@ -209,7 +209,7 @@ export default function CourierProfileScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <ThemedText type="label" style={styles.inputLabel}>Nom</ThemedText>
+              <ThemedText type="small" style={styles.inputLabel}>Nom</ThemedText>
               <TextInput
                 style={[styles.input, { backgroundColor: theme.backgroundRoot, color: theme.text, borderColor: theme.border }]}
                 value={editName}
@@ -220,7 +220,7 @@ export default function CourierProfileScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <ThemedText type="label" style={styles.inputLabel}>Téléphone</ThemedText>
+              <ThemedText type="small" style={styles.inputLabel}>Téléphone</ThemedText>
               <TextInput
                 style={[styles.input, { backgroundColor: theme.backgroundRoot, color: theme.text, borderColor: theme.border }]}
                 value={editPhone}
