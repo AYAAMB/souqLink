@@ -1,34 +1,64 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import MainTabNavigator from "@/navigation/MainTabNavigator";
-import ModalScreen from "@/screens/ModalScreen";
+import { ActivityIndicator, View } from "react-native";
+
+import LoginScreen from "@/screens/LoginScreen";
+import CustomerTabNavigator from "@/navigation/CustomerTabNavigator";
+import CourierTabNavigator from "@/navigation/CourierTabNavigator";
+import AdminTabNavigator from "@/navigation/AdminTabNavigator";
+import { useAuth } from "@/context/AuthContext";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
+import { useTheme } from "@/hooks/useTheme";
 
 export type RootStackParamList = {
-  Main: undefined;
-  Modal: undefined;
+  Login: undefined;
+  CustomerMain: undefined;
+  CourierMain: undefined;
+  AdminMain: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootStackNavigator() {
+  const { user, isLoading } = useAuth();
   const screenOptions = useScreenOptions();
+  const { theme } = useTheme();
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.backgroundRoot }}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
 
   return (
     <Stack.Navigator screenOptions={screenOptions}>
-      <Stack.Screen
-        name="Main"
-        component={MainTabNavigator}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="Modal"
-        component={ModalScreen}
-        options={{
-          presentation: "modal",
-          headerTitle: "Modal",
-        }}
-      />
+      {!user ? (
+        <Stack.Screen
+          name="Login"
+          component={LoginScreen}
+          options={{ headerShown: false }}
+        />
+      ) : user.role === "admin" ? (
+        <Stack.Screen
+          name="AdminMain"
+          component={AdminTabNavigator}
+          options={{ headerShown: false }}
+        />
+      ) : user.role === "courier" ? (
+        <Stack.Screen
+          name="CourierMain"
+          component={CourierTabNavigator}
+          options={{ headerShown: false }}
+        />
+      ) : (
+        <Stack.Screen
+          name="CustomerMain"
+          component={CustomerTabNavigator}
+          options={{ headerShown: false }}
+        />
+      )}
     </Stack.Navigator>
   );
 }

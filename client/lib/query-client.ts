@@ -1,9 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-/**
- * Gets the base URL for the Express API server (e.g., "http://localhost:3000")
- * @returns {string} The API base URL
- */
 export function getApiUrl(): string {
   let host = process.env.EXPO_PUBLIC_DOMAIN;
 
@@ -49,7 +45,18 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     const baseUrl = getApiUrl();
-    const url = new URL(queryKey.join("/") as string, baseUrl);
+    
+    // Handle special cases for nested routes
+    let path = "";
+    if (queryKey[0] === "/api/orders" && queryKey[1] === "customer" && queryKey[2]) {
+      path = `/api/orders/customer/${queryKey[2]}`;
+    } else if (queryKey[0] === "/api/orders" && queryKey[1] === "courier" && queryKey[2]) {
+      path = `/api/orders/courier/${queryKey[2]}`;
+    } else {
+      path = queryKey.join("/");
+    }
+    
+    const url = new URL(path, baseUrl);
 
     const res = await fetch(url, {
       credentials: "include",
@@ -67,9 +74,9 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
-      refetchInterval: false,
-      refetchOnWindowFocus: false,
-      staleTime: Infinity,
+      refetchInterval: 5000, // Refetch every 5 seconds for real-time sync
+      refetchOnWindowFocus: true,
+      staleTime: 2000,
       retry: false,
     },
     mutations: {
