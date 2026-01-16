@@ -11,6 +11,7 @@ import Animated, {
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { useCart } from "@/context/CartContext";
+import { getFullImageUrl } from "@/lib/image-utils";
 import { BorderRadius, Spacing } from "@/constants/theme";
 
 interface ProductCardProps {
@@ -24,9 +25,11 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function ProductCard({ id, name, indicativePrice, imageUrl }: ProductCardProps) {
   const { theme } = useTheme();
-  const { addItem, removeItem, getItemQuantity, updateQuantity } = useCart();
+  const { addItem, getItemQuantity, updateQuantity } = useCart();
   const scale = useSharedValue(1);
   const quantity = getItemQuantity(id);
+
+  const fullImageUrl = getFullImageUrl(imageUrl);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -68,8 +71,8 @@ export function ProductCard({ id, name, indicativePrice, imageUrl }: ProductCard
       ]}
     >
       <View style={[styles.imageContainer, { backgroundColor: theme.backgroundSecondary }]}>
-        {imageUrl ? (
-          <Image source={{ uri: imageUrl }} style={styles.image} contentFit="cover" />
+        {fullImageUrl ? (
+          <Image source={{ uri: fullImageUrl }} style={styles.image} contentFit="cover" />
         ) : (
           <Feather name="package" size={32} color={theme.textSecondary} />
         )}

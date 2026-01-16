@@ -20,6 +20,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
 import { getApiUrl } from "@/lib/query-client";
+import { getFullImageUrl } from "@/lib/image-utils";
 import { BorderRadius, Spacing, PRODUCT_CATEGORIES } from "@/constants/theme";
 
 interface Product {
@@ -177,7 +178,9 @@ export default function AdminProductsScreen() {
     }
   };
 
-  const renderProduct = ({ item }: { item: Product }) => (
+  const renderProduct = ({ item }: { item: Product }) => {
+    const fullImageUrl = getFullImageUrl(item.imageUrl);
+    return (
     <Pressable
       onPress={() => handleOpenModal(item)}
       style={[
@@ -186,8 +189,8 @@ export default function AdminProductsScreen() {
       ]}
     >
       <View style={[styles.productImage, { backgroundColor: theme.backgroundSecondary }]}>
-        {item.imageUrl ? (
-          <Image source={{ uri: item.imageUrl }} style={styles.image} contentFit="cover" />
+        {fullImageUrl ? (
+          <Image source={{ uri: fullImageUrl }} style={styles.image} contentFit="cover" />
         ) : (
           <Feather name="package" size={24} color={theme.textSecondary} />
         )}
@@ -218,6 +221,7 @@ export default function AdminProductsScreen() {
       </Pressable>
     </Pressable>
   );
+  };
 
   if (isLoading) {
     return (
@@ -288,7 +292,7 @@ export default function AdminProductsScreen() {
             <KeyboardAwareScrollViewCompat style={styles.modalBody}>
               <Pressable onPress={handleImagePick} style={[styles.imagePicker, { backgroundColor: theme.backgroundDefault }]}>
                 {imageUri ? (
-                  <Image source={{ uri: imageUri }} style={styles.pickedImage} contentFit="cover" />
+                  <Image source={{ uri: imageUri.startsWith("file://") || imageUri.startsWith("http") ? imageUri : getFullImageUrl(imageUri) || imageUri }} style={styles.pickedImage} contentFit="cover" />
                 ) : (
                   <View style={styles.imagePickerPlaceholder}>
                     <Feather name="camera" size={32} color={theme.textSecondary} />

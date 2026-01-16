@@ -18,6 +18,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useCart, CartItem } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { apiRequest } from "@/lib/query-client";
+import { getFullImageUrl } from "@/lib/image-utils";
 import { BorderRadius, Spacing } from "@/constants/theme";
 
 export default function CartScreen() {
@@ -78,11 +79,13 @@ export default function CartScreen() {
     });
   };
 
-  const renderCartItem = ({ item }: { item: CartItem }) => (
+  const renderCartItem = ({ item }: { item: CartItem }) => {
+    const fullImageUrl = getFullImageUrl(item.imageUrl);
+    return (
     <View style={[styles.cartItem, { backgroundColor: theme.backgroundDefault }]}>
       <View style={[styles.itemImage, { backgroundColor: theme.backgroundSecondary }]}>
-        {item.imageUrl ? (
-          <Image source={{ uri: item.imageUrl }} style={styles.image} contentFit="cover" />
+        {fullImageUrl ? (
+          <Image source={{ uri: fullImageUrl }} style={styles.image} contentFit="cover" />
         ) : (
           <Feather name="package" size={24} color={theme.textSecondary} />
         )}
@@ -114,6 +117,7 @@ export default function CartScreen() {
       </View>
     </View>
   );
+  };
 
   if (items.length === 0) {
     return (
