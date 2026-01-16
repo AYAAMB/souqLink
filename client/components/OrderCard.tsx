@@ -21,6 +21,7 @@ interface OrderCardProps {
   createdAt: string;
   finalTotal?: string | null;
   onPress?: () => void;
+  showTrackButton?: boolean;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -34,6 +35,7 @@ export function OrderCard({
   createdAt,
   finalTotal,
   onPress,
+  showTrackButton = false,
 }: OrderCardProps) {
   const { theme } = useTheme();
   const scale = useSharedValue(1);
@@ -125,6 +127,16 @@ export function OrderCard({
           </ThemedText>
         </View>
       ) : null}
+
+      {showTrackButton ? (
+        <Pressable
+          onPress={onPress}
+          style={[styles.trackButton, { backgroundColor: theme.primary }]}
+        >
+          <Feather name="map-pin" size={16} color="#FFFFFF" />
+          <ThemedText style={styles.trackButtonText}>Suivre la commande</ThemedText>
+        </Pressable>
+      ) : null}
     </AnimatedPressable>
   );
 }
@@ -174,5 +186,19 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     padding: Spacing.md,
     borderRadius: BorderRadius.sm,
+  },
+  trackButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: Spacing.md,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    gap: Spacing.sm,
+  },
+  trackButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+    fontSize: 14,
   },
 });

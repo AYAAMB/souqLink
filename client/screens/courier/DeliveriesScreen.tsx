@@ -3,6 +3,7 @@ import { StyleSheet, View, FlatList, RefreshControl, Pressable, Alert, Platform 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -46,12 +47,17 @@ export default function DeliveriesScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
+  const navigation = useNavigation<any>();
   const { theme } = useTheme();
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [orderItems, setOrderItems] = useState<Record<string, OrderItem[]>>({});
+
+  const handleOpenNavigation = (orderId: string) => {
+    navigation.navigate("CourierNavigation", { orderId });
+  };
 
   const { data: orders = [], isLoading, error, refetch, isRefetching } = useQuery<Order[]>({
     queryKey: ["/api/orders", "courier", user?.email],
@@ -245,6 +251,16 @@ export default function DeliveriesScreen() {
               </View>
             ) : null}
 
+            {item.status !== "delivered" ? (
+              <Pressable
+                onPress={() => handleOpenNavigation(item.id)}
+                style={[styles.navigationButton, { backgroundColor: theme.primary }]}
+              >
+                <Feather name="navigation" size={18} color="#FFFFFF" />
+                <ThemedText style={styles.navigationButtonText}>Ouvrir la navigation</ThemedText>
+              </Pressable>
+            ) : null}
+
             {nextStatus && actionLabel ? (
               <Button
                 onPress={() => updateStatusMutation.mutate({ orderId: item.id, status: nextStatus })}
@@ -376,5 +392,19 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     marginTop: Spacing.sm,
+  },
+  navigationButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  navigationButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+    fontSize: 14,
   },
 });

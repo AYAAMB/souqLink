@@ -3,6 +3,7 @@ import { StyleSheet, View, FlatList, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 
 import { OrderCard } from "@/components/OrderCard";
@@ -26,6 +27,7 @@ export default function OrdersScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
+  const navigation = useNavigation<any>();
   const { theme } = useTheme();
   const { user } = useAuth();
 
@@ -33,6 +35,10 @@ export default function OrdersScreen() {
     queryKey: ["/api/orders", "customer", user?.email],
     enabled: !!user?.email,
   });
+
+  const handleTrackOrder = (orderId: string) => {
+    navigation.navigate("OrderTracking", { orderId });
+  };
 
   const renderOrder = ({ item }: { item: Order }) => (
     <OrderCard
@@ -43,6 +49,8 @@ export default function OrdersScreen() {
       deliveryAddress={item.deliveryAddress}
       createdAt={item.createdAt}
       finalTotal={item.finalTotal}
+      onPress={() => handleTrackOrder(item.id)}
+      showTrackButton={item.status !== "delivered"}
     />
   );
 

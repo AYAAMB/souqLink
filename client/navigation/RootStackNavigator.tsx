@@ -3,8 +3,8 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { ActivityIndicator, View } from "react-native";
 
 import LoginScreen from "@/screens/LoginScreen";
-import CustomerTabNavigator from "@/navigation/CustomerTabNavigator";
-import CourierTabNavigator from "@/navigation/CourierTabNavigator";
+import CustomerStackNavigator from "@/navigation/CustomerStackNavigator";
+import CourierStackNavigator from "@/navigation/CourierStackNavigator";
 import AdminTabNavigator from "@/navigation/AdminTabNavigator";
 import { useAuth } from "@/context/AuthContext";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
@@ -49,13 +49,13 @@ export default function RootStackNavigator() {
       ) : user.role === "courier" ? (
         <Stack.Screen
           name="CourierMain"
-          component={CourierTabNavigator}
+          component={CourierStackNavigator}
           options={{ headerShown: false }}
         />
       ) : (
         <Stack.Screen
           name="CustomerMain"
-          component={CustomerTabNavigator}
+          component={CustomerStackNavigator}
           options={{ headerShown: false }}
         />
       )}
