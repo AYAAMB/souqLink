@@ -1,0 +1,253 @@
+Project name: SouqLink
+
+Goal:
+Build a complete MVP of a local grocery delivery app similar to Glovo, adapted for Action Track validation. The app must allow customers to order groceries from supermarkets using a catalog-style interface, and place free-text orders for traditional souq items. SouqLink manages everything: catalog, orders, couriers, and delivery. Vendors/supermarkets do NOT have accounts or dashboards.
+
+Core concept:
+* Supermarkets are passive suppliers (no login, no profile, no integration).
+* SouqLink manually manages the supermarket catalog.
+* Souq orders have NO catalog (free-text shopping list).
+* All orders are fulfilled by SouqLink student couriers.
+* Cash on delivery only.
+* MVP-focused: simple, functional, real-world usable.
+
+User roles (single login system):
+Use ONE Users table with role-based access.
+Roles:
+* admin (SouqLink team)
+* courier (student delivery)
+* customer (end user)
+
+Users table:
+* id
+* email (unique)
+* name
+* phone
+* role (admin | courier | customer)
+
+Authentication:
+* Email-based login for all users
+* Use logged-in user context everywhere
+* Screen visibility strictly controlled by role
+
+========================
+DATA STRUCTURE
+========================
+
+Products table (supermarket only):
+* id
+* name
+* category
+* image
+* indicative_price
+* is_active
+
+Orders table:
+* id
+* order_type ("supermarket" | "souq")
+* customer_email
+* customer_name
+* customer_phone
+* delivery_address
+* status ("received" | "shopping" | "in_delivery" | "delivered")
+* assigned_courier_email
+* delivery_fee (fixed, e.g. 15 MAD)
+* final_total
+* notes
+* created_at
+
+OrderItems table (supermarket only):
+* id
+* order_id (relation)
+* product_id (relation)
+* quantity
+* indicative_price
+
+Souq-specific fields (either in Orders table or dedicated section):
+* souq_list_text (free-text shopping list)
+* quality_preference ("standard" | "best quality")
+* budget_enabled (boolean)
+* budget_max (optional)
+* preferred_time_window ("morning" | "afternoon" | "evening")
+
+========================
+CUSTOMER EXPERIENCE
+========================
+
+Customer screens (role = customer):
+
+Tabs:
+1. Shop (Supermarket)
+   - Browse ONE supermarket
+   - Categories: Fruits & Vegetables, Dairy, Grocery, Drinks, Cleaning
+   - View products with image, name, indicative price
+   - Add products to cart
+   - Cart shows indicative total + fixed delivery fee
+   - Disclaimer visible:
+     "Prices may vary. Final price is based on store receipt."
+
+2. Cart & Checkout
+   - Review cart
+   - Enter name, phone, delivery address
+   - Cash on delivery only
+   - Confirm order → create Order + OrderItems
+   - Status starts as "received"
+
+3. Souq
+   - NO catalog
+   - Simple form:
+     - Free-text shopping list (required)
+       Placeholder: "2kg tomatoes, 1kg potatoes, 1 chicken..."
+     - Quality preference
+     - Optional budget limit
+     - Preferred delivery time window
+     - Name, phone, address
+   - Disclaimer visible:
+     "Souq prices vary daily. Final price = receipt."
+   - Confirm → create Order with order_type = "souq"
+
+4. My Orders
+   - Show only orders where customer_email = logged-in user email
+   - Display order status
+
+========================
+COURIER EXPERIENCE
+========================
+
+Courier screens (role = courier):
+
+Tab: My Deliveries
+* Show orders where assigned_courier_email = logged-in courier email
+* View order details:
+  - For supermarket: product list + quantities
+  - For souq: free-text shopping list
+* Allow courier to update status:
+  received → shopping → in_delivery → delivered
+* Optional: upload receipt photo
+* Courier does NOT edit prices or products
+
+========================
+ADMIN EXPERIENCE
+========================
+
+Admin screens (role = admin):
+
+Tabs:
+1. Products
+   - Add / edit / deactivate products
+   - Update indicative prices
+   - Manage categories
+
+2. All Orders
+   - View all orders
+   - Filter by order_type (supermarket / souq)
+   - Assign courier (set assigned_courier_email)
+   - Update order status
+   - Enter final_total after purchase
+   - View customer details
+
+3. Dashboard (simple MVP)
+   - Total orders
+   - Orders by type
+   - Orders by status
+
+========================
+NOTIFICATIONS & WORKFLOW
+========================
+
+* When a new order is placed:
+  - Notify admin (email is enough for MVP)
+* When admin assigns courier:
+  - Order appears in courier's "My Deliveries"
+* Status updates reflected in customer "My Orders"
+
+========================
+DESIGN & UX
+========================
+
+* Mobile-first
+* Simple, clean UI
+* Glovo-inspired layout (lightweight)
+* No advanced animations
+* Clear disclaimers for price variation
+
+========================
+WHAT NOT TO BUILD
+========================
+
+* No vendor/supermarket accounts
+* No vendor dashboards
+* No payment gateway
+* No inventory sync
+* No advanced analytics
+* No multi-city logic
+
+========================
+EXPECTED OUTCOME
+========================
+
+A fully functional MVP that:
+* Allows real customers to order groceries
+* Supports supermarket catalog + souq free-text orders
+* Manages roles (customer, courier, admin)
+* Supports real delivery and cash payment
+* Is suitable for Enactus Action Track validation
+Real-time synchronization & order lifecycle (critical requirement):
+
+All orders, couriers, and customers must be fully synchronized through the Orders table in real time.
+
+Order lifecycle logic:
+1. When a customer places an order:
+   - Order is created with status = "received"
+   - Order is immediately visible in Admin → All Orders
+   - Order is NOT visible to couriers yet (unassigned)
+
+2. Admin assigns a courier:
+   - Admin sets assigned_courier_email on the order
+   - Order instantly appears in the assigned courier’s “My Deliveries” screen
+   - Order remains visible to admin with assigned courier info
+
+3. Courier acceptance & execution:
+   - Courier can view order details
+   - Courier explicitly accepts the order (action button: “Accept delivery”)
+   - Once accepted:
+     - Order status updates to "shopping"
+     - Status change is instantly visible to:
+       - Admin (All Orders)
+       - Customer (My Orders)
+
+4. Delivery progression:
+   - Courier updates status:
+     - "shopping" → "in_delivery" → "delivered"
+   - Each status update must be synchronized and reflected in real time for:
+     - Admin
+     - Customer
+     - Courier
+
+5. Completion:
+   - Admin can enter final_total after delivery
+   - Order is marked as completed when status = "delivered"
+   - Customer sees final status and confirmation
+
+Access & permissions:
+* Courier can ONLY:
+  - See orders assigned to them
+  - Accept assigned orders
+  - Update order status
+* Courier CANNOT:
+  - Edit products
+  - Edit prices
+  - Assign themselves orders without admin assignment
+
+Admin has full visibility and control over:
+* All orders
+* All couriers
+* Assignment and status override (if needed)
+
+Customer visibility:
+* Customer sees ONLY their own orders
+* Customer sees real-time status updates but cannot modify orders after submission
+
+Synchronization rule:
+* Orders table is the single source of truth.
+* Any update to an order must instantly propagate to all relevant user views based on role.
