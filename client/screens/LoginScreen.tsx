@@ -12,36 +12,55 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth, UserRole } from "@/context/AuthContext";
 import { BorderRadius, Spacing } from "@/constants/theme";
 
-type LoginMode = "customer" | "courier";
+type AuthMode = "login" | "register";
+type UserType = "customer" | "courier";
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const { login } = useAuth();
 
-  const [mode, setMode] = useState<LoginMode>("customer");
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [userType, setUserType] = useState<UserType>("customer");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = async () => {
-    if (!email.trim() || !name.trim() || !phone.trim()) {
-      Alert.alert("Error", "Please fill in all fields");
+  const handleSubmit = async () => {
+    if (!email.trim()) {
+      Alert.alert("Erreur", "Veuillez entrer votre email");
+      return;
+    }
+
+    if (authMode === "register" && (!name.trim() || !phone.trim())) {
+      Alert.alert("Erreur", "Veuillez remplir tous les champs");
       return;
     }
 
     setIsLoading(true);
     try {
-      await login(email.trim().toLowerCase(), name.trim(), phone.trim(), mode);
+      await login(
+        email.trim().toLowerCase(),
+        authMode === "register" ? name.trim() : email.split("@")[0],
+        authMode === "register" ? phone.trim() : "",
+        userType
+      );
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to login. Please try again.");
+      Alert.alert("Erreur", "Echec de connexion. Veuillez réessayer.");
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const toggleAuthMode = () => {
+    setAuthMode(authMode === "login" ? "register" : "login");
+    setEmail("");
+    setName("");
+    setPhone("");
   };
 
   return (
@@ -62,89 +81,175 @@ export default function LoginScreen() {
           style={styles.logo}
           contentFit="contain"
         />
-        <ThemedText type="h2" style={styles.title}>
+        <ThemedText type="h2" style={[styles.title, { color: theme.primary }]}>
           SouqLink
         </ThemedText>
         <ThemedText type="body" style={[styles.subtitle, { color: theme.textSecondary }]}>
-          Fresh groceries delivered to your door
+          {authMode === "login" 
+            ? "Connectez-vous à votre compte" 
+            : "Créez votre compte"}
         </ThemedText>
       </View>
 
-      <View style={styles.modeSelector}>
+      <View style={[styles.authToggle, { backgroundColor: theme.backgroundDefault }]}>
         <Pressable
-          onPress={() => setMode("customer")}
+          onPress={() => setAuthMode("login")}
           style={[
-            styles.modeButton,
-            {
-              backgroundColor: mode === "customer" ? theme.primary : theme.backgroundDefault,
-            },
+            styles.authToggleButton,
+            authMode === "login" && { backgroundColor: theme.primary },
           ]}
         >
           <ThemedText
             type="body"
             style={[
-              styles.modeText,
-              { color: mode === "customer" ? "#FFFFFF" : theme.text },
+              styles.authToggleText,
+              { color: authMode === "login" ? "#FFFFFF" : theme.text },
             ]}
           >
-            Customer
+            Connexion
           </ThemedText>
         </Pressable>
         <Pressable
-          onPress={() => setMode("courier")}
+          onPress={() => setAuthMode("register")}
           style={[
-            styles.modeButton,
-            {
-              backgroundColor: mode === "courier" ? theme.accent : theme.backgroundDefault,
-            },
+            styles.authToggleButton,
+            authMode === "register" && { backgroundColor: theme.primary },
           ]}
         >
           <ThemedText
             type="body"
             style={[
-              styles.modeText,
-              { color: mode === "courier" ? "#FFFFFF" : theme.text },
+              styles.authToggleText,
+              { color: authMode === "register" ? "#FFFFFF" : theme.text },
             ]}
           >
-            Courier
+            Inscription
           </ThemedText>
         </Pressable>
       </View>
+
+      {authMode === "register" ? (
+        <View style={styles.userTypeSelector}>
+          <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+            Je suis:
+          </ThemedText>
+          <View style={styles.userTypeRow}>
+            <Pressable
+              onPress={() => setUserType("customer")}
+              style={[
+                styles.userTypeButton,
+                {
+                  backgroundColor: userType === "customer" ? theme.primary : theme.backgroundDefault,
+                  borderColor: userType === "customer" ? theme.primary : theme.border,
+                },
+              ]}
+            >
+              <ThemedText
+                type="body"
+                style={{
+                  color: userType === "customer" ? "#FFFFFF" : theme.text,
+                  fontWeight: "600",
+                }}
+              >
+                Client
+              </ThemedText>
+              <ThemedText
+                type="small"
+                style={{
+                  color: userType === "customer" ? "rgba(255,255,255,0.8)" : theme.textSecondary,
+                  marginTop: Spacing.xs,
+                }}
+              >
+                Commander des courses
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              onPress={() => setUserType("courier")}
+              style={[
+                styles.userTypeButton,
+                {
+                  backgroundColor: userType === "courier" ? theme.accent : theme.backgroundDefault,
+                  borderColor: userType === "courier" ? theme.accent : theme.border,
+                },
+              ]}
+            >
+              <ThemedText
+                type="body"
+                style={{
+                  color: userType === "courier" ? "#FFFFFF" : theme.text,
+                  fontWeight: "600",
+                }}
+              >
+                Livreur
+              </ThemedText>
+              <ThemedText
+                type="small"
+                style={{
+                  color: userType === "courier" ? "rgba(255,255,255,0.8)" : theme.textSecondary,
+                  marginTop: Spacing.xs,
+                }}
+              >
+                Effectuer des livraisons
+              </ThemedText>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
 
       <View style={styles.form}>
         <Input
           label="Email"
-          placeholder="Enter your email"
+          placeholder="Entrez votre email"
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
           autoCapitalize="none"
           autoComplete="email"
         />
-        <Input
-          label="Full Name"
-          placeholder="Enter your name"
-          value={name}
-          onChangeText={setName}
-          autoCapitalize="words"
-          autoComplete="name"
-        />
-        <Input
-          label="Phone Number"
-          placeholder="Enter your phone"
-          value={phone}
-          onChangeText={setPhone}
-          keyboardType="phone-pad"
-          autoComplete="tel"
-        />
+        
+        {authMode === "register" ? (
+          <>
+            <Input
+              label="Nom complet"
+              placeholder="Entrez votre nom"
+              value={name}
+              onChangeText={setName}
+              autoCapitalize="words"
+              autoComplete="name"
+            />
+            <Input
+              label="Numéro de téléphone"
+              placeholder="Entrez votre téléphone"
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              autoComplete="tel"
+            />
+          </>
+        ) : null}
       </View>
 
-      <Button onPress={handleLogin} disabled={isLoading} style={styles.button}>
-        {isLoading ? "Signing in..." : "Continue"}
+      <Button onPress={handleSubmit} disabled={isLoading} style={styles.button}>
+        {isLoading 
+          ? "Chargement..." 
+          : authMode === "login" 
+            ? "Se connecter" 
+            : "Créer mon compte"}
       </Button>
 
+      <Pressable onPress={toggleAuthMode} style={styles.switchLink}>
+        <ThemedText type="body" style={{ color: theme.textSecondary }}>
+          {authMode === "login" 
+            ? "Pas encore de compte? " 
+            : "Déjà un compte? "}
+          <ThemedText type="link" style={{ color: theme.primary }}>
+            {authMode === "login" ? "S'inscrire" : "Se connecter"}
+          </ThemedText>
+        </ThemedText>
+      </Pressable>
+
       <ThemedText type="small" style={[styles.disclaimer, { color: theme.textSecondary }]}>
-        By continuing, you agree to our Terms of Service and Privacy Policy
+        En continuant, vous acceptez nos Conditions d'Utilisation et Politique de Confidentialité
       </ThemedText>
     </KeyboardAwareScrollViewCompat>
   );
@@ -159,7 +264,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: "center",
-    marginBottom: Spacing["3xl"],
+    marginBottom: Spacing["2xl"],
   },
   logo: {
     width: 80,
@@ -172,28 +277,51 @@ const styles = StyleSheet.create({
   subtitle: {
     textAlign: "center",
   },
-  modeSelector: {
+  authToggle: {
     flexDirection: "row",
-    marginBottom: Spacing["2xl"],
     borderRadius: BorderRadius.md,
-    overflow: "hidden",
+    padding: Spacing.xs,
+    marginBottom: Spacing.xl,
   },
-  modeButton: {
+  authToggleButton: {
     flex: 1,
     paddingVertical: Spacing.md,
     alignItems: "center",
+    borderRadius: BorderRadius.sm,
   },
-  modeText: {
+  authToggleText: {
     fontWeight: "600",
   },
-  form: {
+  userTypeSelector: {
     marginBottom: Spacing.xl,
+  },
+  label: {
+    marginBottom: Spacing.sm,
+    fontWeight: "500",
+  },
+  userTypeRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  userTypeButton: {
+    flex: 1,
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+  form: {
+    marginBottom: Spacing.lg,
   },
   button: {
     marginBottom: Spacing.lg,
   },
+  switchLink: {
+    alignItems: "center",
+    marginBottom: Spacing.xl,
+  },
   disclaimer: {
     textAlign: "center",
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
   },
 });
