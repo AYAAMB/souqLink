@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
-import { StyleSheet, View, Pressable, Animated, Dimensions, Platform, Linking } from "react-native";
+import { StyleSheet, View, Pressable, Animated, Dimensions, Platform, Linking, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoute, useNavigation } from "@react-navigation/native";
-import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from "react-native-maps";
 import { Feather } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
@@ -11,6 +10,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { MapViewWrapper, MapMarker, MapPolyline } from "@/components/MapViewWrapper";
 import { useTheme } from "@/hooks/useTheme";
 import { getApiUrl } from "@/lib/query-client";
 import { BorderRadius, Spacing } from "@/constants/theme";
@@ -47,7 +47,7 @@ export default function OrderTrackingScreen() {
   const route = useRoute();
   const navigation = useNavigation();
   const { theme, isDark } = useTheme();
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
   
   const { orderId } = route.params as { orderId: string };
   
@@ -60,7 +60,7 @@ export default function OrderTrackingScreen() {
   });
 
   useEffect(() => {
-    if (tracking && mapRef.current) {
+    if (Platform.OS !== "web" && tracking && mapRef.current) {
       const points = [
         { latitude: tracking.pickup.lat, longitude: tracking.pickup.lng },
         { latitude: tracking.dropoff.lat, longitude: tracking.dropoff.lng },
@@ -127,12 +127,127 @@ export default function OrderTrackingScreen() {
 
   const currentStatusIndex = getStatusIndex(tracking.status);
 
+  if (Platform.OS === "web") {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+        <View style={[styles.webHeader, { backgroundColor: theme.backgroundDefault, paddingTop: insets.top + Spacing.md }]}>
+          <Pressable style={styles.webBackButton} onPress={() => navigation.goBack()}>
+            <Feather name="arrow-left" size={20} color={theme.text} />
+          </Pressable>
+          <ThemedText type="h4">Suivi de commande</ThemedText>
+          <View style={{ width: 40 }} />
+        </View>
+        
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: Spacing.lg, paddingBottom: insets.bottom + Spacing.xl }}
+        >
+          <View style={[styles.webMapPlaceholder, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+            <Feather name="map" size={48} color={theme.textSecondary} />
+            <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.md }}>
+              La carte est disponible uniquement sur mobile
+            </ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}>
+              Utilisez Expo Go pour voir le suivi en temps réel
+            </ThemedText>
+          </View>
+
+          <View style={[styles.webStatusCard, { backgroundColor: theme.backgroundDefault }]}>
+            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(tracking.status, theme) + "20", alignSelf: "flex-start" }]}>
+              <ThemedText type="small" style={{ color: getStatusColor(tracking.status, theme), fontWeight: "600" }}>
+                {STATUS_STEPS[currentStatusIndex]?.label || tracking.status}
+              </ThemedText>
+            </View>
+
+            <View style={styles.timeline}>
+              {STATUS_STEPS.map((step, index) => {
+                const isCompleted = index <= currentStatusIndex;
+                const isCurrent = index === currentStatusIndex;
+                
+                return (
+                  <View key={step.key} style={styles.timelineItem}>
+                    <View style={styles.timelineLeft}>
+                      <View
+                        style={[
+                          styles.timelineDot,
+                          {
+                            backgroundColor: isCompleted ? theme.primary : theme.border,
+                            borderColor: isCurrent ? theme.primary : "transparent",
+                            borderWidth: isCurrent ? 3 : 0,
+                          },
+                        ]}
+                      >
+                        {isCompleted ? (
+                          <Feather name={step.icon as any} size={12} color="#FFFFFF" />
+                        ) : null}
+                      </View>
+                      {index < STATUS_STEPS.length - 1 ? (
+                        <View
+                          style={[
+                            styles.timelineLine,
+                            { backgroundColor: index < currentStatusIndex ? theme.primary : theme.border },
+                          ]}
+                        />
+                      ) : null}
+                    </View>
+                    <View style={styles.timelineContent}>
+                      <ThemedText type="body" style={{ fontWeight: isCurrent ? "700" : "400" }}>
+                        {step.label}
+                      </ThemedText>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={[styles.webInfoCard, { backgroundColor: theme.backgroundDefault }]}>
+            <View style={styles.infoRow}>
+              <View style={[styles.iconBadge, { backgroundColor: theme.primary + "20" }]}>
+                <Feather name="shopping-bag" size={18} color={theme.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>Collecte</ThemedText>
+                <ThemedText type="body">{tracking.pickup.address}</ThemedText>
+              </View>
+            </View>
+            
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            
+            <View style={styles.infoRow}>
+              <View style={[styles.iconBadge, { backgroundColor: theme.accent + "20" }]}>
+                <Feather name="home" size={18} color={theme.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>Livraison</ThemedText>
+                <ThemedText type="body">{tracking.dropoff.address}</ThemedText>
+              </View>
+            </View>
+          </View>
+
+          {tracking.courier ? (
+            <View style={[styles.webInfoCard, { backgroundColor: theme.backgroundDefault }]}>
+              <View style={styles.infoRow}>
+                <View style={[styles.iconBadge, { backgroundColor: theme.success + "20" }]}>
+                  <Feather name="user" size={18} color={theme.success} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText type="small" style={{ color: theme.textSecondary }}>Livreur</ThemedText>
+                  <ThemedText type="body">{tracking.courier.name}</ThemedText>
+                </View>
+              </View>
+            </View>
+          ) : null}
+        </ScrollView>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <MapView
-        ref={mapRef}
+      <MapViewWrapper
+        mapRef={mapRef}
         style={styles.map}
-        provider={PROVIDER_DEFAULT}
         initialRegion={{
           latitude: (tracking.pickup.lat + tracking.dropoff.lat) / 2,
           longitude: (tracking.pickup.lng + tracking.dropoff.lng) / 2,
@@ -141,7 +256,7 @@ export default function OrderTrackingScreen() {
         }}
         customMapStyle={isDark ? darkMapStyle : []}
       >
-        <Marker
+        <MapMarker
           coordinate={{ latitude: tracking.pickup.lat, longitude: tracking.pickup.lng }}
           title="Point de collecte"
           description={tracking.pickup.address}
@@ -149,9 +264,9 @@ export default function OrderTrackingScreen() {
           <View style={[styles.markerContainer, { backgroundColor: theme.primary }]}>
             <Feather name="shopping-bag" size={16} color="#FFFFFF" />
           </View>
-        </Marker>
+        </MapMarker>
 
-        <Marker
+        <MapMarker
           coordinate={{ latitude: tracking.dropoff.lat, longitude: tracking.dropoff.lng }}
           title="Point de livraison"
           description={tracking.dropoff.address}
@@ -159,10 +274,10 @@ export default function OrderTrackingScreen() {
           <View style={[styles.markerContainer, { backgroundColor: theme.accent }]}>
             <Feather name="home" size={16} color="#FFFFFF" />
           </View>
-        </Marker>
+        </MapMarker>
 
         {tracking.courier?.lat && tracking.courier?.lng ? (
-          <Marker
+          <MapMarker
             coordinate={{ latitude: tracking.courier.lat, longitude: tracking.courier.lng }}
             title={tracking.courier.name}
             description="Votre livreur"
@@ -170,10 +285,10 @@ export default function OrderTrackingScreen() {
             <View style={[styles.courierMarker, { backgroundColor: theme.success }]}>
               <Feather name="navigation" size={18} color="#FFFFFF" />
             </View>
-          </Marker>
+          </MapMarker>
         ) : null}
 
-        <Polyline
+        <MapPolyline
           coordinates={[
             { latitude: tracking.pickup.lat, longitude: tracking.pickup.lng },
             { latitude: tracking.dropoff.lat, longitude: tracking.dropoff.lng },
@@ -184,7 +299,7 @@ export default function OrderTrackingScreen() {
         />
 
         {tracking.courier?.lat && tracking.courier?.lng ? (
-          <Polyline
+          <MapPolyline
             coordinates={[
               { latitude: tracking.courier.lat, longitude: tracking.courier.lng },
               tracking.status === "shopping"
@@ -195,7 +310,7 @@ export default function OrderTrackingScreen() {
             strokeWidth={4}
           />
         ) : null}
-      </MapView>
+      </MapViewWrapper>
 
       <Pressable
         style={[styles.backButton, { backgroundColor: theme.backgroundDefault, top: insets.top + Spacing.md }]}
@@ -523,5 +638,53 @@ const styles = StyleSheet.create({
     height: 20,
     borderLeftWidth: 2,
     borderStyle: "dashed",
+  },
+  webHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
+  },
+  webBackButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  webMapPlaceholder: {
+    height: 200,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.lg,
+  },
+  webStatusCard: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  webInfoCard: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  iconBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.md,
+  },
+  divider: {
+    height: 1,
+    marginVertical: Spacing.md,
   },
 });

@@ -1,20 +1,24 @@
 import React, { useEffect, useRef, useState } from "react";
-import { StyleSheet, View, Pressable, Alert, Platform, Dimensions } from "react-native";
+import { StyleSheet, View, Pressable, Alert, Platform, Dimensions, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoute, useNavigation } from "@react-navigation/native";
-import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from "react-native-maps";
 import { Feather } from "@expo/vector-icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import * as Location from "expo-location";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { MapViewWrapper, MapMarker, MapPolyline } from "@/components/MapViewWrapper";
 import { useTheme } from "@/hooks/useTheme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { BorderRadius, Spacing } from "@/constants/theme";
+
+let Location: any = null;
+if (Platform.OS !== "web") {
+  Location = require("expo-location");
+}
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -46,7 +50,7 @@ export default function CourierNavigationScreen() {
   const navigation = useNavigation();
   const { theme, isDark } = useTheme();
   const queryClient = useQueryClient();
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
   
   const { orderId } = route.params as { orderId: string };
   
@@ -87,6 +91,8 @@ export default function CourierNavigationScreen() {
   });
 
   useEffect(() => {
+    if (Platform.OS === "web" || !Location) return;
+    
     const startLocationTracking = async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
@@ -103,7 +109,7 @@ export default function CourierNavigationScreen() {
             timeInterval: 5000,
             distanceInterval: 10,
           },
-          (location) => {
+          (location: any) => {
             const { latitude, longitude } = location.coords;
             setMyLocation({ lat: latitude, lng: longitude });
             
@@ -126,7 +132,7 @@ export default function CourierNavigationScreen() {
   }, [tracking?.status]);
 
   useEffect(() => {
-    if (tracking && mapRef.current) {
+    if (Platform.OS !== "web" && tracking && mapRef.current) {
       const points = [
         { latitude: tracking.pickup.lat, longitude: tracking.pickup.lng },
         { latitude: tracking.dropoff.lat, longitude: tracking.dropoff.lng },
@@ -201,12 +207,85 @@ export default function CourierNavigationScreen() {
   const currentAction = STATUS_ACTIONS[tracking.status];
   const isDelivered = tracking.status === "delivered";
 
+  if (Platform.OS === "web") {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+        <View style={[styles.webHeader, { backgroundColor: theme.backgroundDefault, paddingTop: insets.top + Spacing.md }]}>
+          <Pressable style={styles.webBackButton} onPress={() => navigation.goBack()}>
+            <Feather name="arrow-left" size={20} color={theme.text} />
+          </Pressable>
+          <ThemedText type="h4">Navigation</ThemedText>
+          <View style={{ width: 40 }} />
+        </View>
+        
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: Spacing.lg, paddingBottom: insets.bottom + Spacing.xl }}
+        >
+          <View style={[styles.webMapPlaceholder, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+            <Feather name="navigation" size={48} color={theme.textSecondary} />
+            <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.md }}>
+              La navigation GPS est disponible uniquement sur mobile
+            </ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}>
+              Utilisez Expo Go pour le suivi GPS en temps réel
+            </ThemedText>
+          </View>
+
+          <View style={[styles.webInfoCard, { backgroundColor: theme.backgroundDefault }]}>
+            <View style={styles.webInfoRow}>
+              <View style={[styles.webIconBadge, { backgroundColor: theme.primary + "20" }]}>
+                <Feather name="shopping-bag" size={18} color={theme.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>Point A - Collecte</ThemedText>
+                <ThemedText type="body">{tracking.pickup.address}</ThemedText>
+              </View>
+            </View>
+            
+            <View style={[styles.webDivider, { backgroundColor: theme.border }]} />
+            
+            <View style={styles.webInfoRow}>
+              <View style={[styles.webIconBadge, { backgroundColor: theme.accent + "20" }]}>
+                <Feather name="home" size={18} color={theme.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>Point B - Livraison</ThemedText>
+                <ThemedText type="body">{tracking.dropoff.address}</ThemedText>
+              </View>
+            </View>
+          </View>
+
+          {currentAction && !isDelivered ? (
+            <Button
+              onPress={handleStatusUpdate}
+              disabled={updateStatusMutation.isPending}
+              style={{ marginTop: Spacing.md }}
+            >
+              {updateStatusMutation.isPending ? "Mise à jour..." : currentAction.label}
+            </Button>
+          ) : null}
+
+          {isDelivered ? (
+            <View style={[styles.webInfoCard, { backgroundColor: theme.success + "20" }]}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Feather name="check-circle" size={24} color={theme.success} />
+                <ThemedText type="body" style={{ color: theme.success, marginLeft: Spacing.md, fontWeight: "600" }}>
+                  Commande livrée
+                </ThemedText>
+              </View>
+            </View>
+          ) : null}
+        </ScrollView>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <MapView
-        ref={mapRef}
+      <MapViewWrapper
+        mapRef={mapRef}
         style={styles.map}
-        provider={PROVIDER_DEFAULT}
         initialRegion={{
           latitude: (tracking.pickup.lat + tracking.dropoff.lat) / 2,
           longitude: (tracking.pickup.lng + tracking.dropoff.lng) / 2,
@@ -216,7 +295,7 @@ export default function CourierNavigationScreen() {
         customMapStyle={isDark ? darkMapStyle : []}
         showsUserLocation={false}
       >
-        <Marker
+        <MapMarker
           coordinate={{ latitude: tracking.pickup.lat, longitude: tracking.pickup.lng }}
           title="Point de collecte"
           description={tracking.pickup.address}
@@ -224,9 +303,9 @@ export default function CourierNavigationScreen() {
           <View style={[styles.markerContainer, { backgroundColor: theme.primary }]}>
             <ThemedText style={styles.markerText}>A</ThemedText>
           </View>
-        </Marker>
+        </MapMarker>
 
-        <Marker
+        <MapMarker
           coordinate={{ latitude: tracking.dropoff.lat, longitude: tracking.dropoff.lng }}
           title="Point de livraison"
           description={tracking.dropoff.address}
@@ -234,17 +313,17 @@ export default function CourierNavigationScreen() {
           <View style={[styles.markerContainer, { backgroundColor: theme.accent }]}>
             <ThemedText style={styles.markerText}>B</ThemedText>
           </View>
-        </Marker>
+        </MapMarker>
 
         {myLocation ? (
-          <Marker coordinate={{ latitude: myLocation.lat, longitude: myLocation.lng }}>
+          <MapMarker coordinate={{ latitude: myLocation.lat, longitude: myLocation.lng }}>
             <View style={[styles.myLocationMarker, { backgroundColor: theme.success }]}>
               <Feather name="navigation" size={16} color="#FFFFFF" />
             </View>
-          </Marker>
+          </MapMarker>
         ) : null}
 
-        <Polyline
+        <MapPolyline
           coordinates={[
             { latitude: tracking.pickup.lat, longitude: tracking.pickup.lng },
             { latitude: tracking.dropoff.lat, longitude: tracking.dropoff.lng },
@@ -255,7 +334,7 @@ export default function CourierNavigationScreen() {
         />
 
         {myLocation ? (
-          <Polyline
+          <MapPolyline
             coordinates={[
               { latitude: myLocation.lat, longitude: myLocation.lng },
               { latitude: destination.lat, longitude: destination.lng },
@@ -264,7 +343,7 @@ export default function CourierNavigationScreen() {
             strokeWidth={4}
           />
         ) : null}
-      </MapView>
+      </MapViewWrapper>
 
       <Pressable
         style={[styles.backButton, { backgroundColor: theme.backgroundDefault, top: insets.top + Spacing.md }]}
@@ -469,5 +548,48 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "700",
     fontSize: 16,
+  },
+  webHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
+  },
+  webBackButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  webMapPlaceholder: {
+    height: 200,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.lg,
+  },
+  webInfoCard: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  webInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  webIconBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.md,
+  },
+  webDivider: {
+    height: 1,
+    marginVertical: Spacing.md,
   },
 });
