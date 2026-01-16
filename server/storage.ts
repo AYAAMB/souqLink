@@ -5,7 +5,7 @@ import {
   orderItems, type OrderItem, type InsertOrderItem 
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, isNull } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -26,6 +26,7 @@ export interface IStorage {
   getOrder(id: string): Promise<Order | undefined>;
   getOrdersByCustomerEmail(email: string): Promise<Order[]>;
   getOrdersByCourierEmail(email: string): Promise<Order[]>;
+  getAvailableOrders(): Promise<Order[]>;
   createOrder(order: InsertOrder): Promise<Order>;
   updateOrder(id: string, order: Partial<InsertOrder>): Promise<Order | undefined>;
 
@@ -107,6 +108,19 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(orders)
       .where(eq(orders.assignedCourierEmail, email))
+      .orderBy(desc(orders.createdAt));
+  }
+
+  async getAvailableOrders(): Promise<Order[]> {
+    return db
+      .select()
+      .from(orders)
+      .where(
+        and(
+          eq(orders.status, "received"),
+          isNull(orders.assignedCourierEmail)
+        )
+      )
       .orderBy(desc(orders.createdAt));
   }
 

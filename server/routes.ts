@@ -161,6 +161,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/orders/available", async (_req: Request, res: Response) => {
+    try {
+      const orders = await storage.getAvailableOrders();
+      res.json(orders);
+    } catch (error) {
+      console.error("Get available orders error:", error);
+      res.status(500).json({ error: "Failed to get available orders" });
+    }
+  });
+
+  app.post("/api/orders/:id/claim", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { courierEmail } = req.body;
+
+      const order = await storage.getOrder(id);
+      if (!order) {
+        return res.status(404).json({ error: "Commande non trouvée" });
+      }
+
+      if (order.assignedCourierEmail) {
+        return res.status(400).json({ error: "Cette commande a déjà été acceptée par un autre livreur" });
+      }
+
+      const updatedOrder = await storage.updateOrder(id, {
+        assignedCourierEmail: courierEmail,
+        status: "shopping",
+      });
+
+      res.json(updatedOrder);
+    } catch (error) {
+      console.error("Claim order error:", error);
+      res.status(500).json({ error: "Failed to claim order" });
+    }
+  });
+
   app.get("/api/orders/:id", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;

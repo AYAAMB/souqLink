@@ -43,6 +43,8 @@ interface OrderItem {
   };
 }
 
+type TabType = "available" | "myDeliveries";
+
 export default function DeliveriesScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
@@ -52,6 +54,7 @@ export default function DeliveriesScreen() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  const [activeTab, setActiveTab] = useState<TabType>("available");
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [orderItems, setOrderItems] = useState<Record<string, OrderItem[]>>({});
 
@@ -59,9 +62,31 @@ export default function DeliveriesScreen() {
     navigation.navigate("CourierNavigation", { orderId });
   };
 
-  const { data: orders = [], isLoading, error, refetch, isRefetching } = useQuery<Order[]>({
-    queryKey: ["/api/orders", "courier", user?.email],
+  const { data: availableOrders = [], isLoading: isLoadingAvailable, refetch: refetchAvailable, isRefetching: isRefetchingAvailable } = useQuery<Order[]>({
+    queryKey: ["/api/orders/available"],
+  });
+
+  const { data: myOrders = [], isLoading: isLoadingMy, refetch: refetchMy, isRefetching: isRefetchingMy } = useQuery<Order[]>({
+    queryKey: ["/api/orders/courier", user?.email],
     enabled: !!user?.email,
+  });
+
+  const claimOrderMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      const response = await apiRequest("POST", `/api/orders/${orderId}/claim`, { courierEmail: user?.email });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      setActiveTab("myDeliveries");
+    },
+    onError: (error: any) => {
+      const message = error?.message || "Cette commande n'est plus disponible.";
+      Alert.alert("Erreur", message);
+    },
   });
 
   const updateStatusMutation = useMutation({
@@ -76,7 +101,7 @@ export default function DeliveriesScreen() {
       }
     },
     onError: () => {
-      Alert.alert("Error", "Failed to update status. Please try again.");
+      Alert.alert("Erreur", "Impossible de mettre à jour le statut.");
     },
   });
 
@@ -101,10 +126,23 @@ export default function DeliveriesScreen() {
     }
   };
 
+  const handleClaimOrder = (orderId: string) => {
+    if (Platform.OS === "web") {
+      claimOrderMutation.mutate(orderId);
+    } else {
+      Alert.alert(
+        "Accepter la commande",
+        "Voulez-vous accepter cette commande et commencer les courses ?",
+        [
+          { text: "Annuler", style: "cancel" },
+          { text: "Accepter", onPress: () => claimOrderMutation.mutate(orderId) },
+        ]
+      );
+    }
+  };
+
   const getNextStatus = (currentStatus: string) => {
     switch (currentStatus) {
-      case "received":
-        return "shopping";
       case "shopping":
         return "in_delivery";
       case "in_delivery":
@@ -116,18 +154,148 @@ export default function DeliveriesScreen() {
 
   const getStatusAction = (currentStatus: string) => {
     switch (currentStatus) {
-      case "received":
-        return "Accept & Start Shopping";
       case "shopping":
-        return "Start Delivery";
+        return "Commencer la livraison";
       case "in_delivery":
-        return "Mark as Delivered";
+        return "Marquer comme livré";
       default:
         return null;
     }
   };
 
-  const renderOrder = ({ item }: { item: Order }) => {
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffMinutes < 60) {
+      return `il y a ${diffMinutes} min`;
+    } else if (diffMinutes < 1440) {
+      return `il y a ${Math.floor(diffMinutes / 60)}h`;
+    }
+    return date.toLocaleDateString("fr-FR");
+  };
+
+  const renderAvailableOrder = ({ item }: { item: Order }) => {
+    const isExpanded = expandedOrder === item.id;
+    const items = orderItems[item.id] || [];
+
+    return (
+      <View style={[styles.orderCard, { backgroundColor: theme.backgroundDefault }]}>
+        <Pressable onPress={() => handleToggleExpand(item.id, item.orderType)}>
+          <View style={styles.orderHeader}>
+            <View style={styles.headerLeft}>
+              <View
+                style={[
+                  styles.typeIcon,
+                  { backgroundColor: item.orderType === "souq" ? theme.accent + "20" : theme.primary + "20" },
+                ]}
+              >
+                <Feather
+                  name={item.orderType === "souq" ? "shopping-bag" : "shopping-cart"}
+                  size={16}
+                  color={item.orderType === "souq" ? theme.accent : theme.primary}
+                />
+              </View>
+              <View>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  {formatTime(item.createdAt)}
+                </ThemedText>
+                <ThemedText type="body" style={{ fontWeight: "600" }}>
+                  {item.orderType === "souq" ? "Commande Souq" : "Commande Supermarché"}
+                </ThemedText>
+              </View>
+            </View>
+            <View style={styles.headerRight}>
+              <View style={[styles.newBadge, { backgroundColor: theme.success + "20" }]}>
+                <ThemedText type="small" style={{ color: theme.success, fontWeight: "600" }}>
+                  Nouvelle
+                </ThemedText>
+              </View>
+              <Feather
+                name={isExpanded ? "chevron-up" : "chevron-down"}
+                size={20}
+                color={theme.textSecondary}
+                style={{ marginLeft: Spacing.sm }}
+              />
+            </View>
+          </View>
+        </Pressable>
+
+        {isExpanded ? (
+          <View style={styles.orderDetails}>
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+            <View style={styles.detailSection}>
+              <ThemedText type="small" style={[styles.sectionLabel, { color: theme.textSecondary }]}>
+                Client
+              </ThemedText>
+              <View style={styles.detailRow}>
+                <Feather name="user" size={14} color={theme.text} />
+                <ThemedText type="body" style={styles.detailText}>
+                  {item.customerName}
+                </ThemedText>
+              </View>
+              <View style={styles.detailRow}>
+                <Feather name="map-pin" size={14} color={theme.text} />
+                <ThemedText type="body" style={styles.detailText}>
+                  {item.deliveryAddress}
+                </ThemedText>
+              </View>
+            </View>
+
+            {item.orderType === "souq" ? (
+              <View style={styles.detailSection}>
+                <ThemedText type="small" style={[styles.sectionLabel, { color: theme.textSecondary }]}>
+                  Liste de courses
+                </ThemedText>
+                <View style={[styles.listBox, { backgroundColor: theme.backgroundSecondary }]}>
+                  <ThemedText type="body">{item.souqListText}</ThemedText>
+                </View>
+                {item.qualityPreference ? (
+                  <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>
+                    Qualité: {QUALITY_PREFERENCES.find((q) => q.id === item.qualityPreference)?.name || item.qualityPreference}
+                  </ThemedText>
+                ) : null}
+              </View>
+            ) : (
+              <View style={styles.detailSection}>
+                <ThemedText type="small" style={[styles.sectionLabel, { color: theme.textSecondary }]}>
+                  Produits
+                </ThemedText>
+                {items.length > 0 ? (
+                  items.map((orderItem) => (
+                    <View key={orderItem.id} style={styles.productRow}>
+                      <ThemedText type="body" style={{ flex: 1 }}>
+                        {orderItem.product?.name || "Produit"}
+                      </ThemedText>
+                      <ThemedText type="body" style={{ fontWeight: "600" }}>
+                        x{orderItem.quantity}
+                      </ThemedText>
+                    </View>
+                  ))
+                ) : (
+                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                    Chargement...
+                  </ThemedText>
+                )}
+              </View>
+            )}
+
+            <Button
+              onPress={() => handleClaimOrder(item.id)}
+              disabled={claimOrderMutation.isPending}
+              style={styles.actionButton}
+            >
+              {claimOrderMutation.isPending ? "Acceptation..." : "Accepter la commande"}
+            </Button>
+          </View>
+        ) : null}
+      </View>
+    );
+  };
+
+  const renderMyOrder = ({ item }: { item: Order }) => {
     const isExpanded = expandedOrder === item.id;
     const nextStatus = getNextStatus(item.status);
     const actionLabel = getStatusAction(item.status);
@@ -155,7 +323,7 @@ export default function DeliveriesScreen() {
                   #{item.id.slice(0, 8).toUpperCase()}
                 </ThemedText>
                 <ThemedText type="body" style={{ fontWeight: "600" }}>
-                  {item.orderType === "souq" ? "Souq Order" : "Supermarket Order"}
+                  {item.orderType === "souq" ? "Commande Souq" : "Commande Supermarché"}
                 </ThemedText>
               </View>
             </View>
@@ -177,7 +345,7 @@ export default function DeliveriesScreen() {
 
             <View style={styles.detailSection}>
               <ThemedText type="small" style={[styles.sectionLabel, { color: theme.textSecondary }]}>
-                Customer
+                Client
               </ThemedText>
               <View style={styles.detailRow}>
                 <Feather name="user" size={14} color={theme.text} />
@@ -202,32 +370,32 @@ export default function DeliveriesScreen() {
             {item.orderType === "souq" ? (
               <View style={styles.detailSection}>
                 <ThemedText type="small" style={[styles.sectionLabel, { color: theme.textSecondary }]}>
-                  Shopping List
+                  Liste de courses
                 </ThemedText>
                 <View style={[styles.listBox, { backgroundColor: theme.backgroundSecondary }]}>
                   <ThemedText type="body">{item.souqListText}</ThemedText>
                 </View>
                 {item.qualityPreference ? (
                   <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>
-                    Quality: {QUALITY_PREFERENCES.find((q) => q.id === item.qualityPreference)?.name || item.qualityPreference}
+                    Qualité: {QUALITY_PREFERENCES.find((q) => q.id === item.qualityPreference)?.name || item.qualityPreference}
                   </ThemedText>
                 ) : null}
                 {item.preferredTimeWindow ? (
                   <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
-                    Time: {TIME_WINDOWS.find((t) => t.id === item.preferredTimeWindow)?.name || item.preferredTimeWindow}
+                    Créneau: {TIME_WINDOWS.find((t) => t.id === item.preferredTimeWindow)?.name || item.preferredTimeWindow}
                   </ThemedText>
                 ) : null}
               </View>
             ) : (
               <View style={styles.detailSection}>
                 <ThemedText type="small" style={[styles.sectionLabel, { color: theme.textSecondary }]}>
-                  Products
+                  Produits
                 </ThemedText>
                 {items.length > 0 ? (
                   items.map((orderItem) => (
                     <View key={orderItem.id} style={styles.productRow}>
                       <ThemedText type="body" style={{ flex: 1 }}>
-                        {orderItem.product?.name || "Product"}
+                        {orderItem.product?.name || "Produit"}
                       </ThemedText>
                       <ThemedText type="body" style={{ fontWeight: "600" }}>
                         x{orderItem.quantity}
@@ -236,7 +404,7 @@ export default function DeliveriesScreen() {
                   ))
                 ) : (
                   <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                    Loading items...
+                    Chargement...
                   </ThemedText>
                 )}
               </View>
@@ -267,7 +435,7 @@ export default function DeliveriesScreen() {
                 disabled={updateStatusMutation.isPending}
                 style={styles.actionButton}
               >
-                {updateStatusMutation.isPending ? "Updating..." : actionLabel}
+                {updateStatusMutation.isPending ? "Mise à jour..." : actionLabel}
               </Button>
             ) : null}
           </View>
@@ -276,59 +444,148 @@ export default function DeliveriesScreen() {
     );
   };
 
+  const isLoading = activeTab === "available" ? isLoadingAvailable : isLoadingMy;
+  const isRefetching = activeTab === "available" ? isRefetchingAvailable : isRefetchingMy;
+  const orders = activeTab === "available" ? availableOrders : myOrders;
+  const refetch = activeTab === "available" ? refetchAvailable : refetchMy;
+
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
-        <LoadingSpinner message="Loading deliveries..." />
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
-        <EmptyState
-          icon="alert-circle"
-          title="Something went wrong"
-          message="Failed to load deliveries. Please try again."
-          actionLabel="Retry"
-          onAction={refetch}
-        />
+        <LoadingSpinner message="Chargement des livraisons..." />
       </View>
     );
   }
 
   return (
-    <FlatList
-      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
-      contentContainerStyle={{
-        paddingTop: headerHeight + Spacing.lg,
-        paddingBottom: tabBarHeight + Spacing.xl,
-        paddingHorizontal: Spacing.lg,
-        flexGrow: 1,
-      }}
-      scrollIndicatorInsets={{ bottom: insets.bottom }}
-      data={orders}
-      renderItem={renderOrder}
-      keyExtractor={(item) => item.id}
-      refreshControl={
-        <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={theme.primary} />
-      }
-      ListEmptyComponent={
-        <EmptyState
-          icon="truck"
-          title="No deliveries assigned"
-          message="You don't have any deliveries assigned yet. Check back soon!"
-        />
-      }
-      showsVerticalScrollIndicator={false}
-    />
+    <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+      <View style={[styles.tabsContainer, { paddingTop: headerHeight + Spacing.md, paddingHorizontal: Spacing.lg }]}>
+        <Pressable
+          style={[
+            styles.tab,
+            activeTab === "available" && [styles.activeTab, { borderBottomColor: theme.primary }],
+          ]}
+          onPress={() => setActiveTab("available")}
+        >
+          <ThemedText
+            type="body"
+            style={[
+              styles.tabText,
+              { color: activeTab === "available" ? theme.primary : theme.textSecondary },
+            ]}
+          >
+            Disponibles
+          </ThemedText>
+          {availableOrders.length > 0 ? (
+            <View style={[styles.badge, { backgroundColor: theme.primary }]}>
+              <ThemedText style={styles.badgeText}>{availableOrders.length}</ThemedText>
+            </View>
+          ) : null}
+        </Pressable>
+        <Pressable
+          style={[
+            styles.tab,
+            activeTab === "myDeliveries" && [styles.activeTab, { borderBottomColor: theme.primary }],
+          ]}
+          onPress={() => setActiveTab("myDeliveries")}
+        >
+          <ThemedText
+            type="body"
+            style={[
+              styles.tabText,
+              { color: activeTab === "myDeliveries" ? theme.primary : theme.textSecondary },
+            ]}
+          >
+            Mes livraisons
+          </ThemedText>
+          {myOrders.filter(o => o.status !== "delivered").length > 0 ? (
+            <View style={[styles.badge, { backgroundColor: theme.accent }]}>
+              <ThemedText style={styles.badgeText}>
+                {myOrders.filter(o => o.status !== "delivered").length}
+              </ThemedText>
+            </View>
+          ) : null}
+        </Pressable>
+      </View>
+
+      <FlatList
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingTop: Spacing.lg,
+          paddingBottom: tabBarHeight + Spacing.xl,
+          paddingHorizontal: Spacing.lg,
+          flexGrow: 1,
+        }}
+        scrollIndicatorInsets={{ bottom: insets.bottom }}
+        data={orders}
+        renderItem={activeTab === "available" ? renderAvailableOrder : renderMyOrder}
+        keyExtractor={(item) => item.id}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={refetch}
+            tintColor={theme.primary}
+          />
+        }
+        ListEmptyComponent={
+          <EmptyState
+            icon={activeTab === "available" ? "inbox" : "truck"}
+            title={activeTab === "available" ? "Aucune commande disponible" : "Aucune livraison"}
+            message={
+              activeTab === "available"
+                ? "Il n'y a pas de nouvelles commandes pour le moment. Rafraîchissez pour vérifier."
+                : "Vous n'avez pas encore de livraisons assignées."
+            }
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  tabsContainer: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.1)",
+  },
+  tab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
+    gap: Spacing.xs,
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+  },
+  tabText: {
+    fontWeight: "600",
+  },
+  badge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+  },
+  badgeText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  newBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
   },
   orderCard: {
     borderRadius: BorderRadius.md,
@@ -343,6 +600,7 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
   },
   headerRight: {
     flexDirection: "row",
