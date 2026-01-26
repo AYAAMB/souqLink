@@ -1,15 +1,19 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 export function getApiUrl(): string {
-  let host = process.env.EXPO_PUBLIC_DOMAIN;
+  const host = process.env.EXPO_PUBLIC_DOMAIN;
 
   if (!host) {
     throw new Error("EXPO_PUBLIC_DOMAIN is not set");
   }
 
-  let url = new URL(`https://${host}`);
+  // Si l'utilisateur met déjà http:// ou https:// dans .env → on garde tel quel
+  if (host.startsWith("http://") || host.startsWith("https://")) {
+    return host.endsWith("/") ? host : host + "/";
+  }
 
-  return url.href;
+  // Sinon on suppose http (dev local)
+  return `http://${host.replace(/\/+$/, "")}/`;
 }
 
 async function throwIfResNotOk(res: Response) {

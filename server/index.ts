@@ -1,8 +1,10 @@
+// server/index.ts
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import * as fs from "fs";
 import * as path from "path";
+import "dotenv/config";
 
 const app = express();
 const log = console.log;
@@ -13,36 +15,30 @@ declare module "http" {
   }
 }
 
+/**
+ * ✅ DEV CORS (mobile + web)
+ * - Autorise Expo Go + navigateur + fetch avec Authorization
+ * - Répond correctement aux preflight OPTIONS
+ *
+ * ⚠️ En prod, il faut restreindre les origines.
+ */
 function setupCors(app: express.Application) {
   app.use((req, res, next) => {
-    const origins = new Set<string>();
-
-    if (process.env.REPLIT_DEV_DOMAIN) {
-      origins.add(`https://${process.env.REPLIT_DEV_DOMAIN}`);
-    }
-
-    if (process.env.REPLIT_DOMAINS) {
-      process.env.REPLIT_DOMAINS.split(",").forEach((d) => {
-        origins.add(`https://${d.trim()}`);
-      });
-    }
-
     const origin = req.header("origin");
 
-    // Allow localhost origins for Expo web development (any port)
-    const isLocalhost =
-      origin?.startsWith("http://localhost:") ||
-      origin?.startsWith("http://127.0.0.1:");
-
-    if (origin && (origins.has(origin) || isLocalhost)) {
-      res.header("Access-Control-Allow-Origin", origin);
-      res.header(
-        "Access-Control-Allow-Methods",
-        "GET, POST, PUT, DELETE, OPTIONS",
-      );
-      res.header("Access-Control-Allow-Headers", "Content-Type");
-      res.header("Access-Control-Allow-Credentials", "true");
-    }
+    // En dev: autoriser toutes les origines (résout Expo Go / Android)
+    // Si tu veux restreindre: remplace "*" par ton domaine / IP
+    res.header("Access-Control-Allow-Origin", origin || "*");
+    res.header("Vary", "Origin");
+    res.header(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+    );
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization, Accept, Origin, X-Requested-With",
+    );
+    res.header("Access-Control-Allow-Credentials", "true");
 
     if (req.method === "OPTIONS") {
       return res.sendStatus(200);
@@ -56,7 +52,7 @@ function setupBodyParsing(app: express.Application) {
   app.use(
     express.json({
       verify: (req, _res, buf) => {
-        req.rawBody = buf;
+        (req as any).rawBody = buf;
       },
     }),
   );
@@ -67,27 +63,27 @@ function setupBodyParsing(app: express.Application) {
 function setupRequestLogging(app: express.Application) {
   app.use((req, res, next) => {
     const start = Date.now();
-    const path = req.path;
+    const reqPath = req.path;
     let capturedJsonResponse: Record<string, unknown> | undefined = undefined;
 
-    const originalResJson = res.json;
-    res.json = function (bodyJson, ...args) {
-      capturedJsonResponse = bodyJson;
-      return originalResJson.apply(res, [bodyJson, ...args]);
-    };
+   const originalResJson = res.json.bind(res);
+res.json = function (bodyJson: any, ...args: any[]) {
+  capturedJsonResponse = bodyJson;
+  return (originalResJson as any).apply(res, [bodyJson, ...args]);
+} as any;
 
     res.on("finish", () => {
-      if (!path.startsWith("/api")) return;
+      if (!reqPath.startsWith("/api")) return;
 
       const duration = Date.now() - start;
+      let logLine = `${req.method} ${reqPath} ${res.statusCode} in ${duration}ms`;
 
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
+      if (logLine.length > 160) {
+        logLine = logLine.slice(0, 159) + "…";
       }
 
       log(logLine);
@@ -141,10 +137,13 @@ function serveLandingPage({
   landingPageTemplate: string;
   appName: string;
 }) {
+  // ✅ En local, on force http par défaut (évite des liens https cassés)
   const forwardedProto = req.header("x-forwarded-proto");
-  const protocol = forwardedProto || req.protocol || "https";
+  const protocol = forwardedProto || req.protocol || "http";
+
   const forwardedHost = req.header("x-forwarded-host");
   const host = forwardedHost || req.get("host");
+
   const baseUrl = `${protocol}://${host}`;
   const expsUrl = `${host}`;
 
@@ -217,11 +216,15 @@ function setupErrorHandler(app: express.Application) {
 
     res.status(status).json({ message });
 
+    // Garder throw pour visibilité en dev
     throw err;
   });
 }
 
 (async () => {
+  // ✅ Health route de test réseau (très utile pour Expo Go)
+  app.get("/health", (_req, res) => res.status(200).send("OK"));
+
   setupCors(app);
   setupBodyParsing(app);
   setupRequestLogging(app);
@@ -233,14 +236,11 @@ function setupErrorHandler(app: express.Application) {
   setupErrorHandler(app);
 
   const port = parseInt(process.env.PORT || "5000", 10);
-  server.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
-    () => {
-      log(`express server serving on port ${port}`);
-    },
-  );
+
+  // ✅ IMPORTANT : 0.0.0.0 pour être accessible depuis téléphone
+  const host = process.env.HOST || "0.0.0.0";
+
+  server.listen(port, host, () => {
+    log(`express server serving on http://${host}:${port}`);
+  });
 })();

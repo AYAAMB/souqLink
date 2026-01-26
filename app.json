@@ -13,6 +13,7 @@
       "bundleIdentifier": "com.souqlink.app"
     },
     "android": {
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#10B981",
         "foregroundImage": "./assets/images/icon.png"

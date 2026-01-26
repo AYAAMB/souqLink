@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect , useState } from "react";
 import { StyleSheet, View, Pressable, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
@@ -16,6 +16,7 @@ type AuthMode = "login" | "register";
 type UserType = "customer" | "courier";
 
 export default function LoginScreen() {
+  
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const { login } = useAuth();
