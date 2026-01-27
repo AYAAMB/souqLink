@@ -13,14 +13,16 @@
       "bundleIdentifier": "com.souqlink.app"
     },
     "android": {
-      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#10B981",
         "foregroundImage": "./assets/images/icon.png"
       },
       "package": "com.souqlink.app",
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "single",
@@ -46,10 +48,24 @@
           "photosPermission": "Allow SouqLink to access your photos for product images.",
           "cameraPermission": "Allow SouqLink to use your camera for product images."
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
       ]
     ],
     "experiments": {
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "16a4f52a-a35a-440f-814c-769c58fb55e5"
+      }
+    },
+    "owner": "aya2004"
   }
 }

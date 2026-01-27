@@ -216,8 +216,9 @@ function setupErrorHandler(app: express.Application) {
 
     res.status(status).json({ message });
 
-    // Garder throw pour visibilité en dev
-    throw err;
+    // ✅ Ne pas crash en production
+    console.error("Unhandled error:", err);
+
   });
 }
 
