@@ -1,4 +1,8 @@
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+echo souqlink.dump >> .gitignore
+echo souqlink_dump.sql >> .gitignore
+echo *.dump >> .gitignore
+echo *_dump.sql >> .gitignore
 
 # dependencies
 node_modules/
