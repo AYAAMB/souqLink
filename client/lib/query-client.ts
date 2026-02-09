@@ -77,3 +77,9 @@ export const queryClient = new QueryClient({
     mutations: { retry: false },
   },
 });
+export function getApiUrl(): string {
+  if (Platform.OS === "web") return "";
+  const host = process.env.EXPO_PUBLIC_API_URL;
+  if (!host) throw new Error("EXPO_PUBLIC_API_URL is not set");
+  return host.endsWith("/") ? host : host + "/";
+}
