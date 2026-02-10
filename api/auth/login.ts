@@ -14,16 +14,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     role?: UserRole;
   };
 
-  if (!email || !name) {
-    return res.status(400).json({ error: "email and name are required" });
-  }
+  if (!email || !name) return res.status(400).json({ error: "Email and name are required" });
 
-  const safeRole: UserRole = role ?? "customer";
   const sql = getSql();
 
-  // 1) Chercher user par email
+  const isAdminEmail = email.toLowerCase() === "admin@souqlink.com";
+  const effectiveRole: UserRole = isAdminEmail ? "admin" : (role ?? "customer");
+
   const found = await sql`
-    select id, email, name, phone
+    select id, email, name, phone, role
     from public.users
     where lower(email) = lower(${email})
     limit 1
@@ -31,29 +30,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   let user = found[0] as any;
 
-  // 2) Si existe -> update name/phone
-  if (user?.id) {
-    const updated = await sql`
-      update public.users
-      set name = ${name}, phone = ${phone ?? null}
-      where id = ${user.id}
-      returning id, email, name, phone
-    `;
-    user = updated[0];
-  } else {
-    // 3) Sinon -> insert nouveau
+  if (!user) {
     const id = crypto.randomUUID();
     const inserted = await sql`
-      insert into public.users (id, email, name, phone)
-      values (${id}, ${email}, ${name}, ${phone ?? null})
-      returning id, email, name, phone
+      insert into public.users (id, email, name, phone, role, created_at)
+      values (${id}, ${email}, ${name}, ${phone ?? null}, ${effectiveRole}, now())
+      returning id, email, name, phone, role
     `;
     user = inserted[0];
+    return res.status(200).json(user);
   }
 
-  // IMPORTANT: ton client attend un User avec role
-  return res.status(200).json({
-    ...user,
-    role: safeRole,
-  });
+  // Fix admin if needed
+  if (isAdminEmail && user.role !== "admin") {
+    const updated = await sql`
+      update public.users
+      set role = 'admin'
+      where id = ${user.id}
+      returning id, email, name, phone, role
+    `;
+    return res.status(200).json(updated[0]);
+  }
+
+  // Role mismatch protection (same as Express)
+  if (!isAdminEmail && role && user.role !== role && user.role !== "admin") {
+    const roleNames: Record<string, string> = { customer: "client", courier: "livreur", admin: "administrateur" };
+    return res.status(400).json({
+      error: `Ce compte existe déjà en tant que ${roleNames[user.role] || user.role}. Utilisez un autre email ou connectez-vous avec le bon rôle.`,
+    });
+  }
+
+  // Update name/phone
+  const updated = await sql`
+    update public.users
+    set name = ${name}, phone = ${phone ?? null}
+    where id = ${user.id}
+    returning id, email, name, phone, role
+  `;
+
+  return res.status(200).json(updated[0]);
 }
