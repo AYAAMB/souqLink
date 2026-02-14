@@ -15,7 +15,18 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, name: string, phone: string, role?: UserRole) => Promise<void>;
+
+  // ✅ login now needs password
+  login: (email: string, password: string, role?: UserRole) => Promise<void>;
+
+  // ✅ register added
+  register: (email: string, name: string, phone: string, password: string, role?: UserRole) => Promise<void>;
+
+  // ✅ Added: forgot/reset password using SAME API FILE (/api/auth/login)
+  // (on garde message, mais on autorise aussi otp en DEV si l'API le renvoie)
+  forgotPassword: (email: string) => Promise<{ message: string; otp?: string | null; expiresInMinutes?: number }>;
+  resetPassword: (email: string, otp: string, newPassword: string) => Promise<{ message: string }>;
+
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   isAdmin: boolean;
@@ -48,19 +59,109 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (email: string, name: string, phone: string, role: UserRole = "customer") => {
+  // ✅ petit helper: parser JSON en sécurité (si 500 HTML, ça évite crash)
+  const safeJson = async (response: Response) => {
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  };
+
+  // ✅ Connexion
+  const login = async (email: string, password: string, role: UserRole = "customer") => {
     try {
       const response = await apiRequest("POST", "/api/auth/login", {
         email,
-        name,
-        phone,
+        password,
         role,
       });
-      const userData = await response.json();
-      setUser(userData);
-      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData));
+
+      const data = await safeJson(response);
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Echec de connexion. Veuillez réessayer.");
+      }
+
+      setUser(data);
+      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data));
     } catch (error) {
       console.error("Login failed:", error);
+      throw error;
+    }
+  };
+
+  // ✅ Inscription
+  const register = async (
+    email: string,
+    name: string,
+    phone: string,
+    password: string,
+    role: UserRole = "customer"
+  ) => {
+    try {
+      const response = await apiRequest("POST", "/api/auth/register", {
+        email,
+        name,
+        phone,
+        password,
+        role,
+      });
+
+      const data = await safeJson(response);
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Echec d'inscription. Veuillez réessayer.");
+      }
+
+      setUser(data);
+      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data));
+    } catch (error) {
+      console.error("Register failed:", error);
+      throw error;
+    }
+  };
+
+  // ✅ Mot de passe oublié (OTP) -> même endpoint /api/auth/login
+  const forgotPassword = async (email: string) => {
+    try {
+      const response = await apiRequest("POST", "/api/auth/login", {
+        action: "forgot_password",
+        email,
+      });
+
+      const data = await safeJson(response);
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Impossible d'envoyer le code.");
+      }
+
+      return data as { message: string; otp?: string | null; expiresInMinutes?: number };
+    } catch (error) {
+      console.error("Forgot password failed:", error);
+      throw error;
+    }
+  };
+
+  // ✅ Réinitialiser via OTP -> même endpoint /api/auth/login
+  const resetPassword = async (email: string, otp: string, newPassword: string) => {
+    try {
+      const response = await apiRequest("POST", "/api/auth/login", {
+        action: "reset_password",
+        email,
+        otp,
+        newPassword,
+      });
+
+      const data = await safeJson(response);
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Réinitialisation impossible.");
+      }
+
+      return data as { message: string };
+    } catch (error) {
+      console.error("Reset password failed:", error);
       throw error;
     }
   };
@@ -74,20 +175,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // ✅ refreshUser: recharger user depuis storage
   const refreshUser = async () => {
     try {
       const storedUser = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
       if (storedUser) {
-        const userData = JSON.parse(storedUser);
-        const response = await apiRequest("POST", "/api/auth/login", {
-          email: userData.email,
-          name: userData.name,
-          phone: userData.phone,
-          role: userData.role,
-        });
-        const updatedUser = await response.json();
-        setUser(updatedUser);
-        await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
+        setUser(JSON.parse(storedUser));
       }
     } catch (error) {
       console.error("Failed to refresh user:", error);
@@ -98,6 +191,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     isLoading,
     login,
+    register,
+    forgotPassword,
+    resetPassword,
     logout,
     refreshUser,
     isAdmin: user?.role === "admin",
