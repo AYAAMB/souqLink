@@ -34,5 +34,4 @@ export function getSql() {
     max: 1,
     connect_timeout: 10,
   });
-}
-*/
+}*/
