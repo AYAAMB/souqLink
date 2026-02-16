@@ -62,21 +62,28 @@ export default function CartScreen() {
     if (!name.trim() || !phone.trim() || !address.trim()) {
       Alert.alert("Error", "Please fill in all required fields");
       return;
+      
     }
 
-    createOrderMutation.mutate({
-      orderType: "supermarket",
-      customerEmail: user?.email,
-      customerName: name.trim(),
-      customerPhone: phone.trim(),
-      deliveryAddress: address.trim(),
-      notes: notes.trim() || null,
-      items: items.map((item) => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        indicativePrice: item.indicativePrice,
-      })),
-    });
+   createOrderMutation.mutate({
+  orderType: "supermarket",
+  customerEmail: user?.email,
+  customerName: name.trim(),
+  customerPhone: phone.trim(),
+  deliveryAddress: address.trim(),
+  notes: notes.trim() || null,
+
+  // ✅ AJOUTE ÇA
+  deliveryFee: deliveryFee,
+  finalTotal: total,
+
+  items: items.map((item) => ({
+    productId: item.productId,
+    quantity: item.quantity,
+    indicativePrice: item.indicativePrice,
+  })),
+});
+
   };
 
   const renderCartItem = ({ item }: { item: CartItem }) => {

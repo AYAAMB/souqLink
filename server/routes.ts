@@ -363,9 +363,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to update courier location" });
     }
   });
-
+  
   // Get order tracking data (includes courier location)
-  app.get("/api/orders/:id/tracking", async (req: Request, res: Response) => {
+  app.get("/api/orders?action=tracking&id=${encodeURIComponent(orderId)}", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const order = await storage.getOrder(id);

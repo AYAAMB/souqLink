@@ -58,7 +58,8 @@ export default function CourierNavigationScreen() {
   const [locationWatching, setLocationWatching] = useState(false);
 
   const { data: tracking, isLoading, error, refetch } = useQuery<TrackingData>({
-    queryKey: [`/api/orders/${orderId}/tracking`],
+    queryKey: [`/api/orders?action=tracking&id=${encodeURIComponent(orderId)}`
+],
     refetchInterval: 10000,
   });
 
@@ -68,7 +69,7 @@ export default function CourierNavigationScreen() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${orderId}/tracking`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders?action=tracking&id=${orderId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/orders/courier"] });
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

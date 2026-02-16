@@ -23,6 +23,35 @@ interface Order {
   finalTotal: string | null;
 }
 
+// ✅ AJOUT: récupérer les commandes du customer via query params (route existante côté backend)
+async function fetchMyOrders(email: string): Promise<Order[]> {
+  const url = `/api/orders?role=customer&email=${encodeURIComponent(email)}`;
+  const r = await fetch(url);
+
+  const text = await r.text().catch(() => "");
+  let rows: any = null;
+  try {
+    rows = text ? JSON.parse(text) : null;
+  } catch {
+    rows = null;
+  }
+
+  if (!r.ok) {
+    throw new Error(rows?.error || text || `HTTP ${r.status}`);
+  }
+
+  // ✅ Mapping DB -> Front (snake_case -> camelCase)
+  return (rows ?? []).map((o: any) => ({
+    id: o.id,
+    orderType: o.order_type ?? "",
+    status: o.status,
+    customerName: o.customer_name ?? "",
+    deliveryAddress: o.delivery_address ?? "",
+    createdAt: o.created_at ?? "",
+    finalTotal: o.final_total != null ? String(o.final_total) : null,
+  }));
+}
+
 export default function OrdersScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
@@ -31,9 +60,12 @@ export default function OrdersScreen() {
   const { theme } = useTheme();
   const { user } = useAuth();
 
+  const email = user?.email;
+
   const { data: orders = [], isLoading, error, refetch, isRefetching } = useQuery<Order[]>({
-    queryKey: ["/api/orders", "customer", user?.email],
-    enabled: !!user?.email,
+    queryKey: ["/api/orders", "customer", email],
+    enabled: !!email,
+    queryFn: () => fetchMyOrders(email!),
   });
 
   const handleTrackOrder = (orderId: string) => {
@@ -68,7 +100,7 @@ export default function OrdersScreen() {
         <EmptyState
           icon="alert-circle"
           title="Something went wrong"
-          message="Failed to load orders. Please try again."
+          message={(error as any)?.message ?? "Failed to load orders. Please try again."}
           actionLabel="Retry"
           onAction={refetch}
         />
