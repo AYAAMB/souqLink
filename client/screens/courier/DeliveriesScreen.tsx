@@ -45,6 +45,34 @@ interface OrderItem {
 
 type TabType = "available" | "myDeliveries";
 
+/** ---- helpers fetch (pas de fichier API supplémentaire) ---- */
+async function fetchJson(url: string, options?: RequestInit) {
+  const r = await fetch(url, options);
+  const text = await r.text().catch(() => "");
+  let data: any = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {}
+  if (!r.ok) throw new Error(data?.error || text || `HTTP ${r.status}`);
+  return data;
+}
+
+async function fetchAvailableOrders(): Promise<any[]> {
+  return fetchJson("/api/orders?action=available");
+}
+
+async function fetchCourierOrders(email: string): Promise<any[]> {
+  return fetchJson(`/api/orders?role=courier&email=${encodeURIComponent(email)}`);
+}
+
+async function assignOrderToCourier(orderId: string, courierEmail: string) {
+  return fetchJson(`/api/orders?action=assign&id=${encodeURIComponent(orderId)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ courierEmail }),
+  });
+}
+
 export default function DeliveriesScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
@@ -62,22 +90,71 @@ export default function DeliveriesScreen() {
     navigation.navigate("CourierNavigation", { orderId });
   };
 
-  const { data: availableOrders = [], isLoading: isLoadingAvailable, refetch: refetchAvailable, isRefetching: isRefetchingAvailable } = useQuery<Order[]>({
-    queryKey: ["/api/orders/available"],
+  /** ✅ DISPONIBLES */
+  const {
+    data: availableOrders = [],
+    isLoading: isLoadingAvailable,
+    refetch: refetchAvailable,
+    isRefetching: isRefetchingAvailable,
+    error: errorAvailable,
+  } = useQuery<Order[]>({
+    queryKey: ["/api/orders", "available"],
+    queryFn: async () => {
+      const rows = await fetchAvailableOrders();
+      // mapping minimal si tes champs DB sont snake_case
+      return rows.map((r: any) => ({
+        id: r.id,
+        orderType: r.order_type ?? r.orderType,
+        status: (r.status ?? "received") as any,
+        customerName: r.customer_name ?? r.customerName ?? "",
+        customerPhone: r.customer_phone ?? r.customerPhone ?? "",
+        deliveryAddress: r.delivery_address ?? r.deliveryAddress ?? "",
+        createdAt: r.created_at ?? r.createdAt ?? new Date().toISOString(),
+        souqListText: r.souq_list_text ?? r.souqListText ?? null,
+        qualityPreference: r.quality_preference ?? r.qualityPreference ?? null,
+        preferredTimeWindow: r.preferred_time_window ?? r.preferredTimeWindow ?? null,
+        notes: r.notes ?? null,
+      }));
+    },
   });
 
-  const { data: myOrders = [], isLoading: isLoadingMy, refetch: refetchMy, isRefetching: isRefetchingMy } = useQuery<Order[]>({
-    queryKey: ["/api/orders/courier", user?.email],
+  /** ✅ MES LIVRAISONS (ASSIGNÉES) */
+  const {
+    data: myOrders = [],
+    isLoading: isLoadingMy,
+    refetch: refetchMy,
+    isRefetching: isRefetchingMy,
+    error: errorMy,
+  } = useQuery<Order[]>({
+    queryKey: ["/api/orders", "courier", user?.email],
     enabled: !!user?.email,
+    queryFn: async () => {
+      const rows = await fetchCourierOrders(user!.email!);
+      return rows.map((r: any) => ({
+        id: r.id,
+        orderType: r.order_type ?? r.orderType,
+        status: (r.status ?? "received") as any,
+        customerName: r.customer_name ?? r.customerName ?? "",
+        customerPhone: r.customer_phone ?? r.customerPhone ?? "",
+        deliveryAddress: r.delivery_address ?? r.deliveryAddress ?? "",
+        createdAt: r.created_at ?? r.createdAt ?? new Date().toISOString(),
+        souqListText: r.souq_list_text ?? r.souqListText ?? null,
+        qualityPreference: r.quality_preference ?? r.qualityPreference ?? null,
+        preferredTimeWindow: r.preferred_time_window ?? r.preferredTimeWindow ?? null,
+        notes: r.notes ?? null,
+      }));
+    },
   });
 
+  /** ✅ CLAIM (ASSIGN) */
   const claimOrderMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      const response = await apiRequest("POST", `/api/orders/${orderId}/claim`, { courierEmail: user?.email });
-      return response.json();
+      if (!user?.email) throw new Error("courier email missing");
+      return assignOrderToCourier(orderId, user.email);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders", "available"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders", "courier"] });
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -89,31 +166,41 @@ export default function DeliveriesScreen() {
     },
   });
 
-  const updateStatusMutation = useMutation({
-    mutationFn: async ({ orderId, status }: { orderId: string; status: string }) => {
-      const response = await apiRequest("PATCH", `/api/orders/${orderId}`, { status });
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      if (Platform.OS !== "web") {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-    },
-    onError: () => {
-      Alert.alert("Erreur", "Impossible de mettre à jour le statut.");
-    },
-  });
-
-  const fetchOrderItems = async (orderId: string) => {
-    try {
-      const response = await apiRequest("GET", `/api/orders/${orderId}/items`, undefined);
-      const items = await response.json();
-      setOrderItems((prev) => ({ ...prev, [orderId]: items }));
-    } catch (error) {
-      console.error("Failed to fetch order items:", error);
+  /** ⚠️ UPDATE STATUS (si ton API PATCH existe déjà ailleurs)
+   * Si tu n'as pas PATCH, dis-moi et je te fais un POST action=status.
+   */
+const updateStatusMutation = useMutation({
+  mutationFn: async ({ orderId, status }: { orderId: string; status: string }) => {
+    return fetchJson(`/api/orders?action=status&id=${encodeURIComponent(orderId)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status,
+        courierEmail: user?.email, // utile pour sécuriser
+      }),
+    });
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/orders", "courier"] });
+    if (Platform.OS !== "web") {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
-  };
+  },
+  onError: () => {
+    Alert.alert("Erreur", "Impossible de mettre à jour le statut.");
+  },
+});
+
+
+ const fetchOrderItems = async (orderId: string) => {
+  try {
+    const items = await fetchJson(`/api/orders?action=items&id=${encodeURIComponent(orderId)}`);
+    setOrderItems((prev) => ({ ...prev, [orderId]: items }));
+  } catch (error) {
+    console.error("Failed to fetch order items:", error);
+  }
+};
+
 
   const handleToggleExpand = (orderId: string, orderType: string) => {
     if (expandedOrder === orderId) {
@@ -167,12 +254,9 @@ export default function DeliveriesScreen() {
     const date = new Date(dateString);
     const now = new Date();
     const diffMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
-    if (diffMinutes < 60) {
-      return `il y a ${diffMinutes} min`;
-    } else if (diffMinutes < 1440) {
-      return `il y a ${Math.floor(diffMinutes / 60)}h`;
-    }
+
+    if (diffMinutes < 60) return `il y a ${Math.max(diffMinutes, 0)} min`;
+    if (diffMinutes < 1440) return `il y a ${Math.floor(diffMinutes / 60)}h`;
     return date.toLocaleDateString("fr-FR");
   };
 
@@ -254,7 +338,8 @@ export default function DeliveriesScreen() {
                 </View>
                 {item.qualityPreference ? (
                   <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>
-                    Qualité: {QUALITY_PREFERENCES.find((q) => q.id === item.qualityPreference)?.name || item.qualityPreference}
+                    Qualité:{" "}
+                    {QUALITY_PREFERENCES.find((q) => q.id === item.qualityPreference)?.name || item.qualityPreference}
                   </ThemedText>
                 ) : null}
               </View>
@@ -353,12 +438,12 @@ export default function DeliveriesScreen() {
                   {item.customerName}
                 </ThemedText>
               </View>
-              <Pressable style={styles.detailRow}>
+              <View style={styles.detailRow}>
                 <Feather name="phone" size={14} color={theme.primary} />
                 <ThemedText type="body" style={[styles.detailText, { color: theme.primary }]}>
                   {item.customerPhone}
                 </ThemedText>
-              </Pressable>
+              </View>
               <View style={styles.detailRow}>
                 <Feather name="map-pin" size={14} color={theme.text} />
                 <ThemedText type="body" style={styles.detailText}>
@@ -377,7 +462,8 @@ export default function DeliveriesScreen() {
                 </View>
                 {item.qualityPreference ? (
                   <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>
-                    Qualité: {QUALITY_PREFERENCES.find((q) => q.id === item.qualityPreference)?.name || item.qualityPreference}
+                    Qualité:{" "}
+                    {QUALITY_PREFERENCES.find((q) => q.id === item.qualityPreference)?.name || item.qualityPreference}
                   </ThemedText>
                 ) : null}
                 {item.preferredTimeWindow ? (
@@ -420,10 +506,7 @@ export default function DeliveriesScreen() {
             ) : null}
 
             {item.status !== "delivered" ? (
-              <Pressable
-                onPress={() => handleOpenNavigation(item.id)}
-                style={[styles.navigationButton, { backgroundColor: theme.primary }]}
-              >
+              <Pressable onPress={() => handleOpenNavigation(item.id)} style={[styles.navigationButton, { backgroundColor: theme.primary }]}>
                 <Feather name="navigation" size={18} color="#FFFFFF" />
                 <ThemedText style={styles.navigationButtonText}>Ouvrir la navigation</ThemedText>
               </Pressable>
@@ -449,6 +532,8 @@ export default function DeliveriesScreen() {
   const orders = activeTab === "available" ? availableOrders : myOrders;
   const refetch = activeTab === "available" ? refetchAvailable : refetchMy;
 
+  const hasError = activeTab === "available" ? !!errorAvailable : !!errorMy;
+
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
@@ -457,23 +542,28 @@ export default function DeliveriesScreen() {
     );
   }
 
+  if (hasError) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
+        <EmptyState
+          icon="alert-circle"
+          title="Something went wrong"
+          message="Failed to load deliveries. Please try again."
+          actionLabel="Retry"
+          onAction={refetch}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <View style={[styles.tabsContainer, { paddingTop: headerHeight + Spacing.md, paddingHorizontal: Spacing.lg }]}>
         <Pressable
-          style={[
-            styles.tab,
-            activeTab === "available" && [styles.activeTab, { borderBottomColor: theme.primary }],
-          ]}
+          style={[styles.tab, activeTab === "available" && [styles.activeTab, { borderBottomColor: theme.primary }]]}
           onPress={() => setActiveTab("available")}
         >
-          <ThemedText
-            type="body"
-            style={[
-              styles.tabText,
-              { color: activeTab === "available" ? theme.primary : theme.textSecondary },
-            ]}
-          >
+          <ThemedText type="body" style={[styles.tabText, { color: activeTab === "available" ? theme.primary : theme.textSecondary }]}>
             Disponibles
           </ThemedText>
           {availableOrders.length > 0 ? (
@@ -482,27 +572,17 @@ export default function DeliveriesScreen() {
             </View>
           ) : null}
         </Pressable>
+
         <Pressable
-          style={[
-            styles.tab,
-            activeTab === "myDeliveries" && [styles.activeTab, { borderBottomColor: theme.primary }],
-          ]}
+          style={[styles.tab, activeTab === "myDeliveries" && [styles.activeTab, { borderBottomColor: theme.primary }]]}
           onPress={() => setActiveTab("myDeliveries")}
         >
-          <ThemedText
-            type="body"
-            style={[
-              styles.tabText,
-              { color: activeTab === "myDeliveries" ? theme.primary : theme.textSecondary },
-            ]}
-          >
+          <ThemedText type="body" style={[styles.tabText, { color: activeTab === "myDeliveries" ? theme.primary : theme.textSecondary }]}>
             Mes livraisons
           </ThemedText>
-          {myOrders.filter(o => o.status !== "delivered").length > 0 ? (
+          {myOrders.filter((o) => o.status !== "delivered").length > 0 ? (
             <View style={[styles.badge, { backgroundColor: theme.accent }]}>
-              <ThemedText style={styles.badgeText}>
-                {myOrders.filter(o => o.status !== "delivered").length}
-              </ThemedText>
+              <ThemedText style={styles.badgeText}>{myOrders.filter((o) => o.status !== "delivered").length}</ThemedText>
             </View>
           ) : null}
         </Pressable>
@@ -520,13 +600,7 @@ export default function DeliveriesScreen() {
         data={orders}
         renderItem={activeTab === "available" ? renderAvailableOrder : renderMyOrder}
         keyExtractor={(item) => item.id}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
-            tintColor={theme.primary}
-          />
-        }
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={theme.primary} />}
         ListEmptyComponent={
           <EmptyState
             icon={activeTab === "available" ? "inbox" : "truck"}
@@ -545,9 +619,8 @@ export default function DeliveriesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
+
   tabsContainer: {
     flexDirection: "row",
     borderBottomWidth: 1,
@@ -563,12 +636,9 @@ const styles = StyleSheet.create({
     borderBottomColor: "transparent",
     gap: Spacing.xs,
   },
-  activeTab: {
-    borderBottomWidth: 2,
-  },
-  tabText: {
-    fontWeight: "600",
-  },
+  activeTab: { borderBottomWidth: 2 },
+  tabText: { fontWeight: "600" },
+
   badge: {
     minWidth: 20,
     height: 20,
@@ -577,16 +647,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 6,
   },
-  badgeText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "700",
-  },
+  badgeText: { color: "#FFFFFF", fontSize: 12, fontWeight: "700" },
+
   newBadge: {
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
   },
+
   orderCard: {
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
@@ -597,15 +665,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  headerRight: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
+  headerLeft: { flexDirection: "row", alignItems: "center", flex: 1 },
+  headerRight: { flexDirection: "row", alignItems: "center" },
   typeIcon: {
     width: 36,
     height: 36,
@@ -614,16 +675,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: Spacing.md,
   },
-  orderDetails: {
-    marginTop: Spacing.md,
-  },
-  divider: {
-    height: 1,
-    marginBottom: Spacing.md,
-  },
-  detailSection: {
-    marginBottom: Spacing.lg,
-  },
+
+  orderDetails: { marginTop: Spacing.md },
+  divider: { height: 1, marginBottom: Spacing.md },
+
+  detailSection: { marginBottom: Spacing.lg },
   sectionLabel: {
     fontWeight: "600",
     marginBottom: Spacing.sm,
@@ -635,22 +691,18 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: Spacing.xs,
   },
-  detailText: {
-    marginLeft: Spacing.sm,
-    flex: 1,
-  },
-  listBox: {
-    padding: Spacing.md,
-    borderRadius: BorderRadius.sm,
-  },
+  detailText: { marginLeft: Spacing.sm, flex: 1 },
+
+  listBox: { padding: Spacing.md, borderRadius: BorderRadius.sm },
+
   productRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: Spacing.xs,
   },
-  actionButton: {
-    marginTop: Spacing.sm,
-  },
+
+  actionButton: { marginTop: Spacing.sm },
+
   navigationButton: {
     flexDirection: "row",
     alignItems: "center",
