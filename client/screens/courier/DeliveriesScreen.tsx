@@ -73,6 +73,20 @@ async function assignOrderToCourier(orderId: string, courierEmail: string) {
   });
 }
 
+// ✅ NEW: items via action=items (évite /api/orders/:id/items => 404)
+async function fetchItemsForOrder(orderId: string) {
+  return fetchJson(`/api/orders?action=items&id=${encodeURIComponent(orderId)}`);
+}
+
+// ✅ NEW: status via action=status (évite PATCH /api/orders/:id => 404)
+async function updateOrderStatus(orderId: string, status: string, courierEmail?: string | null) {
+  return fetchJson(`/api/orders?action=status&id=${encodeURIComponent(orderId)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status, courierEmail }),
+  });
+}
+
 export default function DeliveriesScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
@@ -84,7 +98,10 @@ export default function DeliveriesScreen() {
 
   const [activeTab, setActiveTab] = useState<TabType>("available");
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
-  const [orderItems, setOrderItems] = useState<Record<string, OrderItem[]>>({});
+
+  // ⚠️ IMPORTANT: undefined = pas encore chargé
+  // [] = chargé mais vide
+  const [orderItems, setOrderItems] = useState<Record<string, OrderItem[] | undefined>>({});
 
   const handleOpenNavigation = (orderId: string) => {
     navigation.navigate("CourierNavigation", { orderId });
@@ -101,7 +118,6 @@ export default function DeliveriesScreen() {
     queryKey: ["/api/orders", "available"],
     queryFn: async () => {
       const rows = await fetchAvailableOrders();
-      // mapping minimal si tes champs DB sont snake_case
       return rows.map((r: any) => ({
         id: r.id,
         orderType: r.order_type ?? r.orderType,
@@ -166,48 +182,45 @@ export default function DeliveriesScreen() {
     },
   });
 
-  /** ⚠️ UPDATE STATUS (si ton API PATCH existe déjà ailleurs)
-   * Si tu n'as pas PATCH, dis-moi et je te fais un POST action=status.
-   */
-const updateStatusMutation = useMutation({
-  mutationFn: async ({ orderId, status }: { orderId: string; status: string }) => {
-    return fetchJson(`/api/orders?action=status&id=${encodeURIComponent(orderId)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        status,
-        courierEmail: user?.email, // utile pour sécuriser
-      }),
-    });
-  },
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ["/api/orders", "courier"] });
-    if (Platform.OS !== "web") {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  /** ✅ UPDATE STATUS (corrigé: plus de PATCH /api/orders/:id) */
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ orderId, status }: { orderId: string; status: string }) => {
+      return updateOrderStatus(orderId, status, user?.email);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders", "courier"] });
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    },
+    onError: () => {
+      Alert.alert("Erreur", "Impossible de mettre à jour le statut.");
+    },
+  });
+
+  const fetchOrderItems = async (orderId: string) => {
+    try {
+      // ✅ marque comme "en cours de chargement"
+      setOrderItems((prev) => ({ ...prev, [orderId]: prev[orderId] ?? undefined }));
+      const items = await fetchItemsForOrder(orderId);
+      // ✅ même si [] (vide), on stocke pour ne plus afficher "Chargement..."
+      setOrderItems((prev) => ({ ...prev, [orderId]: items }));
+    } catch (error) {
+      console.error("Failed to fetch order items:", error);
+      // ✅ on met [] pour arrêter le loading et afficher "Aucun produit..."
+      setOrderItems((prev) => ({ ...prev, [orderId]: [] }));
     }
-  },
-  onError: () => {
-    Alert.alert("Erreur", "Impossible de mettre à jour le statut.");
-  },
-});
-
-
- const fetchOrderItems = async (orderId: string) => {
-  try {
-    const items = await fetchJson(`/api/orders?action=items&id=${encodeURIComponent(orderId)}`);
-    setOrderItems((prev) => ({ ...prev, [orderId]: items }));
-  } catch (error) {
-    console.error("Failed to fetch order items:", error);
-  }
-};
-
+  };
 
   const handleToggleExpand = (orderId: string, orderType: string) => {
     if (expandedOrder === orderId) {
       setExpandedOrder(null);
     } else {
       setExpandedOrder(orderId);
-      if (orderType === "supermarket" && !orderItems[orderId]) {
+
+      // ✅ IMPORTANT: ton orderType n’est pas forcément "supermarket"
+      // On charge les items pour tout ce qui n’est pas "souq"
+      if (orderType !== "souq" && orderItems[orderId] === undefined) {
         fetchOrderItems(orderId);
       }
     }
@@ -217,14 +230,10 @@ const updateStatusMutation = useMutation({
     if (Platform.OS === "web") {
       claimOrderMutation.mutate(orderId);
     } else {
-      Alert.alert(
-        "Accepter la commande",
-        "Voulez-vous accepter cette commande et commencer les courses ?",
-        [
-          { text: "Annuler", style: "cancel" },
-          { text: "Accepter", onPress: () => claimOrderMutation.mutate(orderId) },
-        ]
-      );
+      Alert.alert("Accepter la commande", "Voulez-vous accepter cette commande et commencer les courses ?", [
+        { text: "Annuler", style: "cancel" },
+        { text: "Accepter", onPress: () => claimOrderMutation.mutate(orderId) },
+      ]);
     }
   };
 
@@ -254,15 +263,48 @@ const updateStatusMutation = useMutation({
     const date = new Date(dateString);
     const now = new Date();
     const diffMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-
     if (diffMinutes < 60) return `il y a ${Math.max(diffMinutes, 0)} min`;
     if (diffMinutes < 1440) return `il y a ${Math.floor(diffMinutes / 60)}h`;
     return date.toLocaleDateString("fr-FR");
   };
 
+  const renderProductsSection = (orderId: string, themeObj: any) => {
+    const items = orderItems[orderId]; // undefined = loading
+
+    if (items === undefined) {
+      return (
+        <ThemedText type="small" style={{ color: themeObj.textSecondary }}>
+          Chargement...
+        </ThemedText>
+      );
+    }
+
+    if (items.length === 0) {
+      return (
+        <ThemedText type="small" style={{ color: themeObj.textSecondary }}>
+          Aucun produit dans cette commande.
+        </ThemedText>
+      );
+    }
+
+    return (
+      <>
+        {items.map((orderItem) => (
+          <View key={orderItem.id} style={styles.productRow}>
+            <ThemedText type="body" style={{ flex: 1 }}>
+              {orderItem.product?.name || "Produit"}
+            </ThemedText>
+            <ThemedText type="body" style={{ fontWeight: "600" }}>
+              x{orderItem.quantity}
+            </ThemedText>
+          </View>
+        ))}
+      </>
+    );
+  };
+
   const renderAvailableOrder = ({ item }: { item: Order }) => {
     const isExpanded = expandedOrder === item.id;
-    const items = orderItems[item.id] || [];
 
     return (
       <View style={[styles.orderCard, { backgroundColor: theme.backgroundDefault }]}>
@@ -348,30 +390,11 @@ const updateStatusMutation = useMutation({
                 <ThemedText type="small" style={[styles.sectionLabel, { color: theme.textSecondary }]}>
                   Produits
                 </ThemedText>
-                {items.length > 0 ? (
-                  items.map((orderItem) => (
-                    <View key={orderItem.id} style={styles.productRow}>
-                      <ThemedText type="body" style={{ flex: 1 }}>
-                        {orderItem.product?.name || "Produit"}
-                      </ThemedText>
-                      <ThemedText type="body" style={{ fontWeight: "600" }}>
-                        x{orderItem.quantity}
-                      </ThemedText>
-                    </View>
-                  ))
-                ) : (
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                    Chargement...
-                  </ThemedText>
-                )}
+                {renderProductsSection(item.id, theme)}
               </View>
             )}
 
-            <Button
-              onPress={() => handleClaimOrder(item.id)}
-              disabled={claimOrderMutation.isPending}
-              style={styles.actionButton}
-            >
+            <Button onPress={() => handleClaimOrder(item.id)} disabled={claimOrderMutation.isPending} style={styles.actionButton}>
               {claimOrderMutation.isPending ? "Acceptation..." : "Accepter la commande"}
             </Button>
           </View>
@@ -384,7 +407,6 @@ const updateStatusMutation = useMutation({
     const isExpanded = expandedOrder === item.id;
     const nextStatus = getNextStatus(item.status);
     const actionLabel = getStatusAction(item.status);
-    const items = orderItems[item.id] || [];
 
     return (
       <View style={[styles.orderCard, { backgroundColor: theme.backgroundDefault }]}>
@@ -468,7 +490,8 @@ const updateStatusMutation = useMutation({
                 ) : null}
                 {item.preferredTimeWindow ? (
                   <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
-                    Créneau: {TIME_WINDOWS.find((t) => t.id === item.preferredTimeWindow)?.name || item.preferredTimeWindow}
+                    Créneau:{" "}
+                    {TIME_WINDOWS.find((t) => t.id === item.preferredTimeWindow)?.name || item.preferredTimeWindow}
                   </ThemedText>
                 ) : null}
               </View>
@@ -477,22 +500,7 @@ const updateStatusMutation = useMutation({
                 <ThemedText type="small" style={[styles.sectionLabel, { color: theme.textSecondary }]}>
                   Produits
                 </ThemedText>
-                {items.length > 0 ? (
-                  items.map((orderItem) => (
-                    <View key={orderItem.id} style={styles.productRow}>
-                      <ThemedText type="body" style={{ flex: 1 }}>
-                        {orderItem.product?.name || "Produit"}
-                      </ThemedText>
-                      <ThemedText type="body" style={{ fontWeight: "600" }}>
-                        x{orderItem.quantity}
-                      </ThemedText>
-                    </View>
-                  ))
-                ) : (
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                    Chargement...
-                  </ThemedText>
-                )}
+                {renderProductsSection(item.id, theme)}
               </View>
             )}
 

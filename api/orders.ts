@@ -337,67 +337,117 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // ✅ POST /api/orders  (CREATE ORDER)
-    if (req.method === "POST" && !action) {
-      const body = safeJson(req.body) as any;
+   // ✅ POST /api/orders  (CREATE ORDER + ORDER ITEMS)
+ // ✅ POST /api/orders  (CREATE ORDER + ORDER ITEMS)
+if (req.method === "POST" && !action) {
+  const body = safeJson(req.body) as any;
 
-      const orderType = toStr(body.orderType) ?? "supermarket";
-      const customerEmail = toStr(body.customerEmail);
-      const customerName = toStr(body.customerName);
-      const customerPhone = toStr(body.customerPhone);
-      const deliveryAddress = toStr(body.deliveryAddress);
-      const notes = toStr(body.notes);
+  const orderType = toStr(body.orderType) ?? "supermarket";
+  const customerEmail = toStr(body.customerEmail);
+  const customerName = toStr(body.customerName);
+  const customerPhone = toStr(body.customerPhone);
+  const deliveryAddress = toStr(body.deliveryAddress);
+  const notes = toStr(body.notes);
 
-      const souqListText = toStr(body.souqListText);
-      const qualityPreference = toStr(body.qualityPreference);
-      const budgetEnabled = !!body.budgetEnabled;
-      const budgetMax = body.budgetMax != null && `${body.budgetMax}`.trim() !== "" ? String(body.budgetMax) : null;
-      const preferredTimeWindow = toStr(body.preferredTimeWindow);
+  const souqListText = toStr(body.souqListText);
+  const qualityPreference = toStr(body.qualityPreference);
+  const budgetEnabled = !!body.budgetEnabled;
+  const budgetMax =
+    body.budgetMax != null && `${body.budgetMax}`.trim() !== "" ? String(body.budgetMax) : null;
+  const preferredTimeWindow = toStr(body.preferredTimeWindow);
 
-      const status = (body.status ?? "received").toString();
-      const newId = crypto.randomUUID();
+  const status = (body.status ?? "received").toString();
+  const newId = crypto.randomUUID();
 
-      const inserted = await sql`
-        insert into public.orders (
-          id,
-          order_type,
-          customer_email,
-          customer_name,
-          customer_phone,
-          delivery_address,
-          status,
-          notes,
-          souq_list_text,
-          quality_preference,
-          budget_enabled,
-          budget_max,
-          preferred_time_window,
-          assigned_courier_email,
-          courier_last_update,
-          created_at
-        )
-        values (
-          ${newId},
-          ${orderType},
-          ${customerEmail},
-          ${customerName},
-          ${customerPhone},
-          ${deliveryAddress},
-          ${status},
-          ${notes},
-          ${souqListText},
-          ${qualityPreference},
-          ${budgetEnabled},
-          ${budgetMax},
-          ${preferredTimeWindow},
-          null,
-          null,
-          now()
-        )
-        returning *
-      `;
+  // 1) insert order
+  const inserted = await sql`
+    insert into public.orders (
+      id,
+      order_type,
+      customer_email,
+      customer_name,
+      customer_phone,
+      delivery_address,
+      status,
+      notes,
+      souq_list_text,
+      quality_preference,
+      budget_enabled,
+      budget_max,
+      preferred_time_window,
+      assigned_courier_email,
+      courier_last_update,
+      created_at
+    )
+    values (
+      ${newId},
+      ${orderType},
+      ${customerEmail},
+      ${customerName},
+      ${customerPhone},
+      ${deliveryAddress},
+      ${status},
+      ${notes},
+      ${souqListText},
+      ${qualityPreference},
+      ${budgetEnabled},
+      ${budgetMax},
+      ${preferredTimeWindow},
+      null,
+      null,
+      now()
+    )
+    returning *
+  `;
 
-      return res.status(200).json(inserted[0]);
+  // 2) insert order_items (UNE SEULE FOIS) + merge par productId
+  const rawItems = Array.isArray(body.items) ? body.items : [];
+
+  const merged: Record<string, { productId: string; quantity: number; indicativePrice: string }> = {};
+
+  for (const it of rawItems) {
+    const productId = toStr(it.productId ?? it.product_id);
+    if (!productId) continue;
+
+    const quantity = Number.isFinite(Number(it.quantity)) ? Number(it.quantity) : 1;
+    const indicativePrice =
+      it.indicativePrice != null && `${it.indicativePrice}`.trim() !== ""
+        ? String(it.indicativePrice)
+        : (it.indicative_price != null && `${it.indicative_price}`.trim() !== ""
+            ? String(it.indicative_price)
+            : "0");
+
+    if (!merged[productId]) {
+      merged[productId] = { productId, quantity, indicativePrice };
+    } else {
+      merged[productId].quantity += quantity; // additionne si même produit
     }
+  }
+
+  for (const key of Object.keys(merged)) {
+    const it = merged[key];
+    await sql`
+      insert into public.order_items (
+        id,
+        order_id,
+        product_id,
+        quantity,
+        indicative_price
+      )
+      values (
+        ${crypto.randomUUID()},
+        ${newId},
+        ${it.productId},
+        ${it.quantity},
+        ${it.indicativePrice}
+      )
+    `;
+  }
+
+  return res.status(200).json(inserted[0]);
+}
+
+
 
     return res.status(405).json({ error: "Method not allowed" });
   } catch (e: any) {
