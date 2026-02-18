@@ -352,7 +352,7 @@ export default function CourierProfileScreen() {
                   </ThemedText>
                   <Pressable 
                     style={[styles.helpButton, { backgroundColor: theme.primary }]}
-                    onPress={() => Linking.openURL("tel:+212600000000")}
+                    onPress={() => Linking.openURL("tel:+212690201336")}
                   >
                     <ThemedText type="body" style={{ color: "#FFFFFF" }}>Appeler le support</ThemedText>
                   </Pressable>
@@ -364,12 +364,12 @@ export default function CourierProfileScreen() {
                 <View style={styles.helpContent}>
                   <ThemedText type="h4">Email</ThemedText>
                   <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
-                    support@souqlink.ma
+                    souqlink01@gmail.com
                   </ThemedText>
                   <Pressable 
                     style={[styles.helpButton, { backgroundColor: theme.accent }]}
-                    onPress={() => Linking.openURL("mailto:support@souqlink.ma")}
-                  >
+                      onPress={() => Linking.openURL("mailto:souqlink01@gmail.com")}
+                    >
                     <ThemedText type="body" style={{ color: "#FFFFFF" }}>Envoyer un email</ThemedText>
                   </Pressable>
                 </View>

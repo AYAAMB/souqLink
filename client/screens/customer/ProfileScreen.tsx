@@ -31,7 +31,8 @@ export default function ProfileScreen() {
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: { name: string; phone: string }) => {
-      const response = await apiRequest("PUT", `/api/users/${user?.id}`, data);
+      const response = await apiRequest("PUT", `/api/users?id=${encodeURIComponent(user?.id || "")}`, data);
+
       return response.json();
     },
     onSuccess: () => {
@@ -254,7 +255,7 @@ export default function ProfileScreen() {
                   </ThemedText>
                   <Pressable 
                     style={[styles.helpButton, { backgroundColor: theme.primary }]}
-                    onPress={() => Linking.openURL("tel:+212600000000")}
+                    onPress={() => Linking.openURL("tel:+212690201336")}
                   >
                     <ThemedText type="body" style={{ color: "#FFFFFF" }}>Appeler le support</ThemedText>
                   </Pressable>
@@ -266,11 +267,11 @@ export default function ProfileScreen() {
                 <View style={styles.helpContent}>
                   <ThemedText type="h4">Email</ThemedText>
                   <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
-                    support@souqlink.ma
+                    souqlink01@gmail.com
                   </ThemedText>
                   <Pressable 
                     style={[styles.helpButton, { backgroundColor: theme.accent }]}
-                    onPress={() => Linking.openURL("mailto:support@souqlink.ma")}
+                    onPress={() => Linking.openURL("mailto:souqlink01@gmail.com")}
                   >
                     <ThemedText type="body" style={{ color: "#FFFFFF" }}>Envoyer un email</ThemedText>
                   </Pressable>
@@ -349,7 +350,7 @@ export default function ProfileScreen() {
 
               <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>6. Contact</ThemedText>
               <ThemedText type="body" style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}>
-                Pour toute question concernant ces conditions, contactez-nous à support@souqlink.ma
+                Pour toute question concernant ces conditions, contactez-nous à souqlink01@gmail.com
               </ThemedText>
             </ScrollView>
           </View>
@@ -394,7 +395,7 @@ export default function ProfileScreen() {
 
               <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>5. Vos droits</ThemedText>
               <ThemedText type="body" style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}>
-                Vous avez le droit d'accéder, de modifier ou de supprimer vos données personnelles. Contactez-nous à support@souqlink.ma pour exercer ces droits.
+                Vous avez le droit d'accéder, de modifier ou de supprimer vos données personnelles. Contactez-nous à souqlink01@gmail.com pour exercer ces droits.
               </ThemedText>
 
               <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>6. Cookies</ThemedText>

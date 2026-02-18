@@ -20,6 +20,35 @@ function safeJson(body: any) {
   return body;
 }
 
+// ✅ NEW: parse souq_list_text -> items format attendu par OrderCard
+function parseSouqListText(raw: string, orderId: string) {
+  const text = (raw ?? "").toString().trim();
+  if (!text) return [];
+
+  const lines = text
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  return lines.map((line, idx) => {
+    // Support:
+    // "1 kg potato" -> qty=1, name="kg potato"
+    // "2.5 kg pomme" -> qty=2.5, name="kg pomme"
+    // Sinon qty=1, name=line
+    const m = line.match(/^(\d+(?:[.,]\d+)?)\s+(.*)$/);
+    const qty = m ? parseFloat(m[1].replace(",", ".")) : 1;
+    const name = (m ? m[2] : line).trim();
+
+    return {
+      id: `souq-${orderId}-${idx}`,
+      productId: `souq-${idx}`,
+      quantity: Number.isFinite(qty) ? qty : 1,
+      indicativePrice: "0",
+      product: { name: name || "Produit", imageUrl: null },
+    };
+  });
+}
+
 // NOTE: Tu n'as pas api/orders/[id].ts donc /api/orders/:id ne sera PAS routé ici.
 // Mais on garde parsePath au cas où ton environnement local/proxy envoie quand même ces URLs.
 function parsePath(req: VercelRequest) {
@@ -52,6 +81,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ---------------------------------------------------
     // GET /api/orders/:id/items
     if (req.method === "GET" && pathAction === "items" && pathOrderId) {
+      // ✅ NEW: si commande souq -> lire souq_list_text et parser
+      const ord = await sql`
+        select id, order_type, souq_list_text
+        from public.orders
+        where id = ${String(pathOrderId)}
+        limit 1
+      `;
+      if (ord.length) {
+        const o: any = ord[0];
+        const ot = (o.order_type ?? "").toString().toLowerCase().trim();
+        if (ot === "souq") {
+          const parsed = parseSouqListText(o.souq_list_text ?? "", String(pathOrderId));
+          return res.status(200).json(parsed);
+        }
+      }
+
+      // sinon -> comportement existant (order_items)
       const rows = await sql`
         select
           oi.id,
@@ -248,6 +294,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ✅ GET /api/orders?action=items&id=...   (ORDER ITEMS + PRODUCT)
     if (req.method === "GET" && action === "items" && id) {
+      // ✅ NEW: si commande souq -> parser souq_list_text
+      const ord = await sql`
+        select id, order_type, souq_list_text
+        from public.orders
+        where id = ${String(id)}
+        limit 1
+      `;
+      if (ord.length) {
+        const o: any = ord[0];
+        const ot = (o.order_type ?? "").toString().toLowerCase().trim();
+        if (ot === "souq") {
+          const parsed = parseSouqListText(o.souq_list_text ?? "", String(id));
+          return res.status(200).json(parsed);
+        }
+      }
+
+      // sinon -> comportement existant (order_items)
       const rows = await sql`
         select
           oi.id,
@@ -337,117 +400,115 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // ✅ POST /api/orders  (CREATE ORDER)
-   // ✅ POST /api/orders  (CREATE ORDER + ORDER ITEMS)
- // ✅ POST /api/orders  (CREATE ORDER + ORDER ITEMS)
-if (req.method === "POST" && !action) {
-  const body = safeJson(req.body) as any;
+    // ✅ POST /api/orders  (CREATE ORDER + ORDER ITEMS)
+    // ✅ POST /api/orders  (CREATE ORDER + ORDER ITEMS)
+    if (req.method === "POST" && !action) {
+      const body = safeJson(req.body) as any;
 
-  const orderType = toStr(body.orderType) ?? "supermarket";
-  const customerEmail = toStr(body.customerEmail);
-  const customerName = toStr(body.customerName);
-  const customerPhone = toStr(body.customerPhone);
-  const deliveryAddress = toStr(body.deliveryAddress);
-  const notes = toStr(body.notes);
+      const orderType = toStr(body.orderType) ?? "supermarket";
+      const customerEmail = toStr(body.customerEmail);
+      const customerName = toStr(body.customerName);
+      const customerPhone = toStr(body.customerPhone);
+      const deliveryAddress = toStr(body.deliveryAddress);
+      const notes = toStr(body.notes);
 
-  const souqListText = toStr(body.souqListText);
-  const qualityPreference = toStr(body.qualityPreference);
-  const budgetEnabled = !!body.budgetEnabled;
-  const budgetMax =
-    body.budgetMax != null && `${body.budgetMax}`.trim() !== "" ? String(body.budgetMax) : null;
-  const preferredTimeWindow = toStr(body.preferredTimeWindow);
+      const souqListText = toStr(body.souqListText);
+      const qualityPreference = toStr(body.qualityPreference);
+      const budgetEnabled = !!body.budgetEnabled;
+      const budgetMax =
+        body.budgetMax != null && `${body.budgetMax}`.trim() !== "" ? String(body.budgetMax) : null;
+      const preferredTimeWindow = toStr(body.preferredTimeWindow);
 
-  const status = (body.status ?? "received").toString();
-  const newId = crypto.randomUUID();
+      const status = (body.status ?? "received").toString();
+      const newId = crypto.randomUUID();
 
-  // 1) insert order
-  const inserted = await sql`
-    insert into public.orders (
-      id,
-      order_type,
-      customer_email,
-      customer_name,
-      customer_phone,
-      delivery_address,
-      status,
-      notes,
-      souq_list_text,
-      quality_preference,
-      budget_enabled,
-      budget_max,
-      preferred_time_window,
-      assigned_courier_email,
-      courier_last_update,
-      created_at
-    )
-    values (
-      ${newId},
-      ${orderType},
-      ${customerEmail},
-      ${customerName},
-      ${customerPhone},
-      ${deliveryAddress},
-      ${status},
-      ${notes},
-      ${souqListText},
-      ${qualityPreference},
-      ${budgetEnabled},
-      ${budgetMax},
-      ${preferredTimeWindow},
-      null,
-      null,
-      now()
-    )
-    returning *
-  `;
+      // 1) insert order
+      const inserted = await sql`
+        insert into public.orders (
+          id,
+          order_type,
+          customer_email,
+          customer_name,
+          customer_phone,
+          delivery_address,
+          status,
+          notes,
+          souq_list_text,
+          quality_preference,
+          budget_enabled,
+          budget_max,
+          preferred_time_window,
+          assigned_courier_email,
+          courier_last_update,
+          created_at
+        )
+        values (
+          ${newId},
+          ${orderType},
+          ${customerEmail},
+          ${customerName},
+          ${customerPhone},
+          ${deliveryAddress},
+          ${status},
+          ${notes},
+          ${souqListText},
+          ${qualityPreference},
+          ${budgetEnabled},
+          ${budgetMax},
+          ${preferredTimeWindow},
+          null,
+          null,
+          now()
+        )
+        returning *
+      `;
 
-  // 2) insert order_items (UNE SEULE FOIS) + merge par productId
-  const rawItems = Array.isArray(body.items) ? body.items : [];
+      // 2) insert order_items (UNE SEULE FOIS) + merge par productId
+      const rawItems = Array.isArray(body.items) ? body.items : [];
 
-  const merged: Record<string, { productId: string; quantity: number; indicativePrice: string }> = {};
+      const merged: Record<string, { productId: string; quantity: number; indicativePrice: string }> = {};
 
-  for (const it of rawItems) {
-    const productId = toStr(it.productId ?? it.product_id);
-    if (!productId) continue;
+      for (const it of rawItems) {
+        const productId = toStr(it.productId ?? it.product_id);
+        if (!productId) continue;
 
-    const quantity = Number.isFinite(Number(it.quantity)) ? Number(it.quantity) : 1;
-    const indicativePrice =
-      it.indicativePrice != null && `${it.indicativePrice}`.trim() !== ""
-        ? String(it.indicativePrice)
-        : (it.indicative_price != null && `${it.indicative_price}`.trim() !== ""
-            ? String(it.indicative_price)
-            : "0");
+        const quantity = Number.isFinite(Number(it.quantity)) ? Number(it.quantity) : 1;
+        const indicativePrice =
+          it.indicativePrice != null && `${it.indicativePrice}`.trim() !== ""
+            ? String(it.indicativePrice)
+            : it.indicative_price != null && `${it.indicative_price}`.trim() !== ""
+              ? String(it.indicative_price)
+              : "0";
 
-    if (!merged[productId]) {
-      merged[productId] = { productId, quantity, indicativePrice };
-    } else {
-      merged[productId].quantity += quantity; // additionne si même produit
+        if (!merged[productId]) {
+          merged[productId] = { productId, quantity, indicativePrice };
+        } else {
+          merged[productId].quantity += quantity; // additionne si même produit
+        }
+      }
+
+      for (const key of Object.keys(merged)) {
+        const it = merged[key];
+        await sql`
+          insert into public.order_items (
+            id,
+            order_id,
+            product_id,
+            quantity,
+            indicative_price
+          )
+          values (
+            ${crypto.randomUUID()},
+            ${newId},
+            ${it.productId},
+            ${it.quantity},
+            ${it.indicativePrice}
+          )
+        `;
+      }
+
+      return res.status(200).json(inserted[0]);
     }
-  }
-
-  for (const key of Object.keys(merged)) {
-    const it = merged[key];
-    await sql`
-      insert into public.order_items (
-        id,
-        order_id,
-        product_id,
-        quantity,
-        indicative_price
-      )
-      values (
-        ${crypto.randomUUID()},
-        ${newId},
-        ${it.productId},
-        ${it.quantity},
-        ${it.indicativePrice}
-      )
-    `;
-  }
-
-  return res.status(200).json(inserted[0]);
-}
-
-
 
     return res.status(405).json({ error: "Method not allowed" });
   } catch (e: any) {

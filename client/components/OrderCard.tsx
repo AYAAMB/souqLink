@@ -46,6 +46,11 @@ async function fetchJson(url: string) {
   return data;
 }
 
+function toNumber(v: any) {
+  const n = typeof v === "number" ? v : parseFloat((v ?? "").toString());
+  return Number.isFinite(n) ? n : 0;
+}
+
 export function OrderCard({
   id,
   orderType,
@@ -62,10 +67,15 @@ export function OrderCard({
   const scale = useSharedValue(1);
 
   const [expanded, setExpanded] = useState(false);
-  const [items, setItems] = useState<OrderItem[] | null>(null); // null => pas encore chargé
+  const [items, setItems] = useState<OrderItem[] | null>(null);
   const [loadingItems, setLoadingItems] = useState(false);
 
-  const shouldShowProducts = showProducts ?? orderType === "supermarket";
+  // ✅ Afficher produits pour Souq ET Supermarket (sauf si showProducts est forcé à false)
+ const normalizedType = (orderType ?? "").toLowerCase().trim();
+
+const shouldShowProducts =
+  showProducts ?? (normalizedType === "supermarket" || normalizedType === "souq");
+
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -89,14 +99,20 @@ export function OrderCard({
     });
   };
 
+  // ✅ Charge les items (et refresh à chaque ouverture)
   const loadItems = async () => {
     if (!shouldShowProducts) return;
-    if (items !== null) return; // déjà chargé
 
     setLoadingItems(true);
     try {
-      const data = await fetchJson(`/api/orders?action=items&id=${encodeURIComponent(id)}`);
-      setItems(Array.isArray(data) ? data : []);
+    const API_BASE = process.env.EXPO_PUBLIC_API_URL;
+
+const data = await fetchJson(
+  `${API_BASE}/api/orders?action=items&id=${encodeURIComponent(id)}`
+);
+
+      const arr = Array.isArray(data) ? data : [];
+      setItems(arr);
     } catch (e) {
       console.error("Failed to load order items", e);
       setItems([]);
@@ -108,7 +124,11 @@ export function OrderCard({
   const toggleExpand = async () => {
     const next = !expanded;
     setExpanded(next);
-    if (next) await loadItems();
+
+    // ✅ Quand on ouvre -> on charge/refresh
+    if (next) {
+      await loadItems();
+    }
   };
 
   return (
@@ -157,12 +177,14 @@ export function OrderCard({
             {customerName}
           </ThemedText>
         </View>
+
         <View style={styles.detailRow}>
           <Feather name="map-pin" size={14} color={theme.textSecondary} />
           <ThemedText type="small" numberOfLines={1} style={[styles.detailText, { color: theme.textSecondary }]}>
             {deliveryAddress}
           </ThemedText>
         </View>
+
         <View style={styles.detailRow}>
           <Feather name="clock" size={14} color={theme.textSecondary} />
           <ThemedText type="small" style={[styles.detailText, { color: theme.textSecondary }]}>
@@ -177,33 +199,65 @@ export function OrderCard({
             Total
           </ThemedText>
           <ThemedText type="body" style={{ color: theme.primary, fontWeight: "700" }}>
-            {parseFloat(finalTotal).toFixed(2)} MAD
+            {toNumber(finalTotal).toFixed(2)} MAD
           </ThemedText>
         </View>
       ) : null}
 
-      {/* ✅ PRODUITS (supermarket) */}
+      {/* ✅ PRODUITS (souq + supermarket) */}
       {expanded && shouldShowProducts ? (
         <View style={{ marginTop: Spacing.md }}>
-          <ThemedText type="small" style={{ color: theme.textSecondary, fontWeight: "600" }}>
-            PRODUITS
-          </ThemedText>
+          <View style={styles.productsHeader}>
+            <ThemedText type="small" style={{ color: theme.textSecondary, fontWeight: "600" }}>
+              PRODUITS
+            </ThemedText>
+
+            {/* mini refresh manuel optionnel */}
+            <Pressable onPress={loadItems} disabled={loadingItems} style={styles.refreshBtn}>
+              <Feather name="refresh-cw" size={14} color={theme.textSecondary} />
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                Rafraîchir
+              </ThemedText>
+            </Pressable>
+          </View>
 
           {loadingItems ? (
             <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>
               Chargement...
             </ThemedText>
           ) : items && items.length > 0 ? (
-            items.map((oi) => (
-              <View key={oi.id} style={styles.productRow}>
-                <ThemedText type="body" style={{ flex: 1 }}>
-                  {oi.product?.name || "Produit"}
-                </ThemedText>
-                <ThemedText type="body" style={{ fontWeight: "700" }}>
-                  x{oi.quantity}
-                </ThemedText>
-              </View>
-            ))
+            items.map((oi) => {
+              const unit = toNumber(oi.indicativePrice);
+              const qty = toNumber(oi.quantity);
+              const lineTotal = unit * qty;
+
+              return (
+                <View key={oi.id} style={styles.productRow}>
+                  <View style={{ flex: 1 }}>
+                    <ThemedText type="body" style={{ fontWeight: "600" }}>
+                      {oi.product?.name || "Produit"}
+                    </ThemedText>
+                    {unit > 0 ? (
+                      <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                        {unit.toFixed(2)} MAD / unité
+                      </ThemedText>
+                    ) : null}
+                  </View>
+
+                  <View style={{ alignItems: "flex-end" }}>
+                    <ThemedText type="body" style={{ fontWeight: "700" }}>
+  x{Number.isInteger(qty) ? qty : qty.toFixed(2)}
+</ThemedText>
+
+                    {unit > 0 ? (
+                      <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                        {lineTotal.toFixed(2)} MAD
+                      </ThemedText>
+                    ) : null}
+                  </View>
+                </View>
+              );
+            })
           ) : (
             <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>
               Aucun produit dans cette commande.
@@ -269,11 +323,23 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderRadius: BorderRadius.sm,
   },
+  productsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  refreshBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
   productRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 6,
+    paddingVertical: 8,
   },
   trackButton: {
     flexDirection: "row",
