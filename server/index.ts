@@ -169,36 +169,33 @@ function configureExpoAndLanding(app: express.Application) {
   const landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
   const appName = getAppName();
 
-  log("Serving static Expo files with dynamic manifest routing");
+  // Determine web build directory: prefer dist/, fall back to static-build/
+  const distDir = path.resolve(process.cwd(), "dist");
+  const staticBuildDir = path.resolve(process.cwd(), "static-build");
+  const webDir = fs.existsSync(distDir) ? distDir : staticBuildDir;
+  const webDirExists = fs.existsSync(webDir);
 
+  log(`Serving static Expo files from: ${webDir} (exists: ${webDirExists})`);
+
+  // Serve Expo manifest for mobile clients
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith("/api")) {
       return next();
     }
 
-    if (req.path !== "/" && req.path !== "/manifest") {
-      return next();
-    }
-
     const platform = req.header("expo-platform");
-    if (platform && (platform === "ios" || platform === "android")) {
+    if (platform && (platform === "ios" || platform === "android") && (req.path === "/" || req.path === "/manifest")) {
       return serveExpoManifest(platform, res);
-    }
-
-    if (req.path === "/") {
-      return serveLandingPage({
-        req,
-        res,
-        landingPageTemplate,
-        appName,
-      });
     }
 
     next();
   });
 
+  // Serve static assets
   app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
-  app.use(express.static(path.resolve(process.cwd(), "static-build")));
+  if (webDirExists) {
+    app.use(express.static(webDir));
+  }
 
   log("Expo routing: Checking expo-platform header on / and /manifest");
 }
@@ -234,9 +231,20 @@ function setupErrorHandler(app: express.Application) {
 
   const server = await registerRoutes(app);
 
+  // SPA fallback: serve index.html for non-API routes (must be AFTER API routes)
+  const distDir = path.resolve(process.cwd(), "dist");
+  const distIndex = path.join(distDir, "index.html");
+  if (fs.existsSync(distIndex)) {
+    app.get("*", (req, res, next) => {
+      if (req.path.startsWith("/api")) return next();
+      res.sendFile(distIndex);
+    });
+    log("SPA fallback enabled: serving dist/index.html for all non-API routes");
+  }
+
   setupErrorHandler(app);
 
-  const port = parseInt(process.env.PORT || "5000", 10);
+  const port = parseInt(process.env.PORT || "3000", 10);
 
   // ✅ IMPORTANT : 0.0.0.0 pour être accessible depuis téléphone
   const host = process.env.HOST || "0.0.0.0";

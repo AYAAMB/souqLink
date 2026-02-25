@@ -29,6 +29,7 @@ export interface IStorage {
   getAvailableOrders(): Promise<Order[]>;
   createOrder(order: InsertOrder): Promise<Order>;
   updateOrder(id: string, order: Partial<InsertOrder>): Promise<Order | undefined>;
+  deleteOrder(id: string): Promise<boolean>;
 
   // Order Items
   getOrderItems(orderId: string): Promise<OrderItem[]>;
@@ -141,6 +142,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(orders.id, id))
       .returning();
     return order || undefined;
+  }
+
+  async deleteOrder(id: string): Promise<boolean> {
+    // Delete order items first (FK constraint)
+    await db.delete(orderItems).where(eq(orderItems.orderId, id));
+    const [deleted] = await db.delete(orders).where(eq(orders.id, id)).returning();
+    return !!deleted;
   }
 
   // Order Items

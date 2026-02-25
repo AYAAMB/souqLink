@@ -28,7 +28,7 @@ interface AuthContextType {
   resetPassword: (email: string, otp: string, newPassword: string) => Promise<{ message: string }>;
 
   logout: () => Promise<void>;
-  refreshUser: () => Promise<void>;
+  refreshUser: (updatedUser?: Partial<User>) => Promise<void>;
   isAdmin: boolean;
   isCourier: boolean;
   isCustomer: boolean;
@@ -175,12 +175,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // ✅ refreshUser: recharger user depuis storage
-  const refreshUser = async () => {
+  // ✅ refreshUser: update user state + AsyncStorage with fresh data
+  const refreshUser = async (updatedUser?: Partial<User>) => {
     try {
-      const storedUser = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
+      if (updatedUser && user) {
+        const merged = { ...user, ...updatedUser };
+        setUser(merged);
+        await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(merged));
+      } else {
+        const storedUser = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+        }
       }
     } catch (error) {
       console.error("Failed to refresh user:", error);

@@ -54,8 +54,8 @@ export default function AdminProfileScreen() {
       const response = await apiRequest("PUT", `/api/users/${user?.id}`, data);
       return response.json();
     },
-    onSuccess: () => {
-      refreshUser?.();
+    onSuccess: (data) => {
+      refreshUser?.(data);
       setEditModalVisible(false);
       if (Platform.OS !== "web") {
         Alert.alert("Succès", "Profil mis à jour avec succès");

@@ -82,6 +82,7 @@ export default function AdminOrdersScreen() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -90,6 +91,40 @@ export default function AdminOrdersScreen() {
       Alert.alert("Error", "Failed to update order. Please try again.");
     },
   });
+
+  const deleteOrderMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      const response = await apiRequest("DELETE", `/api/orders/${orderId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
+      handleCloseOrder();
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to delete order. Please try again.");
+    },
+  });
+
+  const handleDeleteOrder = () => {
+    if (!selectedOrder) return;
+    Alert.alert(
+      "Delete Order",
+      `Are you sure you want to delete order #${selectedOrder.id.slice(0, 8).toUpperCase()}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteOrderMutation.mutate(selectedOrder.id),
+        },
+      ]
+    );
+  };
 
   const fetchOrderItems = async (orderId: string) => {
     try {
@@ -482,6 +517,16 @@ export default function AdminOrdersScreen() {
                       </Pressable>
                     ))}
                   </View>
+                </View>
+
+                <View style={[styles.section, { marginTop: Spacing.lg }]}>
+                  <Button
+                    onPress={handleDeleteOrder}
+                    disabled={deleteOrderMutation.isPending}
+                    style={[styles.actionButton, { backgroundColor: theme.error || "#DC3545" }]}
+                  >
+                    Delete Order
+                  </Button>
                 </View>
               </ScrollView>
             ) : null}

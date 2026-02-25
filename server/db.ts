@@ -1,14 +1,37 @@
-import { drizzle } from "drizzle-orm/node-postgres";
-import pg from "pg";
-import * as schema from "@shared/schema";
+import postgres from "postgres";
+import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
+import * as schema from "../shared/schema";
 
-const { Pool } = pg;
+let sql: ReturnType<typeof postgres> | null = null;
 
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
+export function getSql() {
+  if (sql) return sql;
+
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error("DATABASE_URL is not set");
+
+  const isLocal =
+    url.includes("127.0.0.1") ||
+    url.includes("localhost") ||
+    url.includes("0.0.0.0");
+
+  sql = postgres(url, {
+    ssl: isLocal ? false : "require",
+    max: 1,
+    idle_timeout: 20,
+    connect_timeout: 30,
+  });
+
+  return sql;
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle(pool, { schema });
+let _db: PostgresJsDatabase<typeof schema> | null = null;
+
+export const db = new Proxy({} as PostgresJsDatabase<typeof schema>, {
+  get(_target, prop, receiver) {
+    if (!_db) {
+      _db = drizzle(getSql(), { schema });
+    }
+    return Reflect.get(_db, prop, receiver);
+  },
+});

@@ -31,12 +31,11 @@ export default function ProfileScreen() {
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: { name: string; phone: string }) => {
-      const response = await apiRequest("PUT", `/api/users?id=${encodeURIComponent(user?.id || "")}`, data);
-
+      const response = await apiRequest("PUT", `/api/users/${user?.id}`, data);
       return response.json();
     },
-    onSuccess: () => {
-      refreshUser?.();
+    onSuccess: (data) => {
+      refreshUser?.(data);
       setEditModalVisible(false);
       if (Platform.OS !== "web") {
         Alert.alert("Succès", "Profil mis à jour avec succès");
