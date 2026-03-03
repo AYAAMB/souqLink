@@ -123,48 +123,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // ✅ Mot de passe oublié (OTP) -> même endpoint /api/auth/login
-  const forgotPassword = async (email: string) => {
-    try {
-      const response = await apiRequest("POST", "/api/auth/login", {
-        action: "forgot_password",
-        email,
-      });
+ const forgotPassword = async (email: string) => {
+  try {
+    const response = await apiRequest("POST", "/api/auth/forgot-password", {
+      email,
+    });
 
-      const data = await safeJson(response);
+    const data = await safeJson(response);
 
-      if (!response.ok) {
-        throw new Error(data?.error || "Impossible d'envoyer le code.");
-      }
-
-      return data as { message: string; otp?: string | null; expiresInMinutes?: number };
-    } catch (error) {
-      console.error("Forgot password failed:", error);
-      throw error;
+    if (!response.ok) {
+      throw new Error(data?.error || "Impossible d'envoyer le code.");
     }
-  };
+
+    return data as { message: string; otp?: string | null; expiresInMinutes?: number };
+  } catch (error) {
+    console.error("Forgot password failed:", error);
+    throw error;
+  }
+};
 
   // ✅ Réinitialiser via OTP -> même endpoint /api/auth/login
   const resetPassword = async (email: string, otp: string, newPassword: string) => {
-    try {
-      const response = await apiRequest("POST", "/api/auth/login", {
-        action: "reset_password",
-        email,
-        otp,
-        newPassword,
-      });
+  try {
+    const response = await apiRequest("POST", "/api/auth/reset-password", {
+      email,
+      otp,
+      newPassword,
+    });
 
-      const data = await safeJson(response);
+    const data = await safeJson(response);
 
-      if (!response.ok) {
-        throw new Error(data?.error || "Réinitialisation impossible.");
-      }
-
-      return data as { message: string };
-    } catch (error) {
-      console.error("Reset password failed:", error);
-      throw error;
+    if (!response.ok) {
+      throw new Error(data?.error || "Réinitialisation impossible.");
     }
-  };
+
+    return data as { message: string };
+  } catch (error) {
+    console.error("Reset password failed:", error);
+    throw error;
+  }
+};
 
   const logout = async () => {
     try {
