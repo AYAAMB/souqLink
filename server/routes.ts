@@ -272,6 +272,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PATCH /api/products?id=... (query-param style used by client)
+  app.patch("/api/products", upload.single("image"), async (req: Request, res: Response) => {
+    const id = req.query.id as string | undefined;
+    if (!id) return res.status(400).json({ error: "Missing ?id= query parameter" });
+
+    try {
+      const { name, category, indicativePrice, isActive } = req.body;
+
+      const updateData: any = {};
+      if (name !== undefined) updateData.name = name;
+      if (category !== undefined) updateData.category = category;
+      if (indicativePrice !== undefined) updateData.indicativePrice = indicativePrice;
+      if (isActive !== undefined) updateData.isActive = isActive === "true" || isActive === true;
+      if (req.file) updateData.imageUrl = `/uploads/${req.file.filename}`;
+
+      const product = await storage.updateProduct(id, updateData);
+      if (!product) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+
+      res.json(product);
+    } catch (error) {
+      console.error("Update product error:", error);
+      res.status(500).json({ error: "Failed to update product" });
+    }
+  });
+
+  // PATCH /api/products/:id (RESTful path style - kept for backward compat)
   app.patch("/api/products/:id", upload.single("image"), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
