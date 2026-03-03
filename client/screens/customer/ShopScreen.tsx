@@ -61,14 +61,14 @@ async function fetchActiveProducts(): Promise<Product[]> {
     throw new Error(msg);
   }
 
-  // ✅ adapte les noms DB -> front (image_url -> imageUrl, is_active -> isActive, indicative_price -> indicativePrice)
+  // ✅ adapte les noms DB -> front (supporte camelCase Drizzle ET snake_case brut)
   return (rows ?? []).map((p: any) => ({
     id: p.id,
     name: p.name,
     category: p.category,
-    imageUrl: p.image_url ?? null,
-    indicativePrice: p.indicative_price ?? "",
-    isActive: !!p.is_active,
+    imageUrl: p.imageUrl ?? p.image_url ?? null,
+    indicativePrice: p.indicativePrice ?? p.indicative_price ?? "",
+    isActive: !!(p.isActive ?? p.is_active),
   }));
 }
 

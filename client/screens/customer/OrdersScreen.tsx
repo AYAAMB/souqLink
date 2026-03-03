@@ -40,15 +40,15 @@ async function fetchMyOrders(email: string): Promise<Order[]> {
     throw new Error(rows?.error || text || `HTTP ${r.status}`);
   }
 
-  // ✅ Mapping DB -> Front (snake_case -> camelCase)
+  // ✅ Mapping DB -> Front (supporte camelCase Drizzle ET snake_case brut)
   return (rows ?? []).map((o: any) => ({
     id: o.id,
-    orderType: o.order_type ?? "",
+    orderType: o.orderType ?? o.order_type ?? "",
     status: o.status,
-    customerName: o.customer_name ?? "",
-    deliveryAddress: o.delivery_address ?? "",
-    createdAt: o.created_at ?? "",
-    finalTotal: o.final_total != null ? String(o.final_total) : null,
+    customerName: o.customerName ?? o.customer_name ?? "",
+    deliveryAddress: o.deliveryAddress ?? o.delivery_address ?? "",
+    createdAt: o.createdAt ?? o.created_at ?? "",
+    finalTotal: (o.finalTotal ?? o.final_total) != null ? String(o.finalTotal ?? o.final_total) : null,
   }));
 }
 

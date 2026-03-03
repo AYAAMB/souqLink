@@ -105,7 +105,8 @@ const shouldShowProducts =
 
     setLoadingItems(true);
     try {
-    const API_BASE = process.env.EXPO_PUBLIC_API_URL;
+    // Sur web, même domaine -> chemin relatif. Sur mobile -> URL complète.
+    const API_BASE = typeof window !== "undefined" && window.location ? "" : (process.env.EXPO_PUBLIC_API_URL ?? "");
 
 const data = await fetchJson(
   `${API_BASE}/api/orders?action=items&id=${encodeURIComponent(id)}`

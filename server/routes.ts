@@ -74,8 +74,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name,
         phone: phone || null,
         role: effectiveRole,
-        passwordHash,
       });
+
+      // Update user with password hash
+      await storage.updateUser(user.id, { passwordHash });
 
       // Don't return passwordHash to client
       const { passwordHash: _ph, ...safeUser } = user;
