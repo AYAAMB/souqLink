@@ -1,11 +1,11 @@
-# SouqLink - Local Grocery Delivery App
+# SouqLik - Local Grocery Delivery App
 
 ## Overview
-SouqLink is a local grocery delivery mobile application built with Expo React Native and Express.js backend. It allows customers to order groceries from supermarkets using a catalog-style interface or place free-text orders for traditional souq (market) items.
+SouqLik is a local grocery delivery mobile application built with Expo React Native and Express.js backend. It allows customers to order groceries from supermarkets using a catalog-style interface or place free-text orders for traditional souq (market) items.
 
 ## Core Concept
 - **Supermarkets** are passive suppliers (no login, no profile)
-- **SouqLink** manually manages the supermarket catalog
+- **SouqLik** manually manages the supermarket catalog
 - **Souq orders** have NO catalog (free-text shopping list)
 - All orders are fulfilled by **student couriers**
 - **Cash on delivery** only
@@ -33,7 +33,7 @@ SouqLink is a local grocery delivery mobile application built with Expo React Na
 - View dashboard statistics
 
 ## Pre-configured Accounts
-- Admin: admin@souqlink.com (pre-seeded in database)
+- Admin: admin@SouqLik.com (pre-seeded in database)
 - New customers and couriers can register through the app
 
 ## Technical Stack

@@ -56,7 +56,7 @@ export default function AdminTabNavigator() {
         component={AdminDashboardScreen}
         options={{
           title: "Dashboard",
-          headerTitle: () => <HeaderTitle title="SouqLink Admin" />,
+          headerTitle: () => <HeaderTitle title="SouqLik Admin" />,
           tabBarIcon: ({ color, size }) => (
             <Feather name="home" size={size} color={color} />
           ),

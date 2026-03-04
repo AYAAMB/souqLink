@@ -236,7 +236,7 @@ export default function CourierProfileScreen() {
         </Button>
 
         <ThemedText type="small" style={[styles.version, { color: theme.textSecondary }]}>
-          SouqLink Livreur v1.0.0
+          SouqLik Livreur v1.0.0
         </ThemedText>
       </KeyboardAwareScrollViewCompat>
 
@@ -393,11 +393,11 @@ export default function CourierProfileScreen() {
                 <View style={styles.helpContent}>
                   <ThemedText type="h4">Email</ThemedText>
                   <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
-                    souqlink01@gmail.com
+                    SouqLik01@gmail.com
                   </ThemedText>
                   <Pressable
                     style={[styles.helpButton, { backgroundColor: theme.accent }]}
-                    onPress={() => Linking.openURL("mailto:souqlink01@gmail.com")}
+                    onPress={() => Linking.openURL("mailto:SouqLik01@gmail.com")}
                   >
                     <ThemedText type="body" style={{ color: "#FFFFFF" }}>
                       Envoyer un email

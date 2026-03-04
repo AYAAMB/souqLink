@@ -168,7 +168,7 @@ export default function ProfileScreen() {
         </Button>
 
         <ThemedText type="small" style={[styles.version, { color: theme.textSecondary }]}>
-          SouqLink v1.0.0
+          SouqLik v1.0.0
         </ThemedText>
       </KeyboardAwareScrollViewCompat>
 
@@ -266,11 +266,11 @@ export default function ProfileScreen() {
                 <View style={styles.helpContent}>
                   <ThemedText type="h4">Email</ThemedText>
                   <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
-                    souqlink01@gmail.com
+                    SouqLik01@gmail.com
                   </ThemedText>
                   <Pressable 
                     style={[styles.helpButton, { backgroundColor: theme.accent }]}
-                    onPress={() => Linking.openURL("mailto:souqlink01@gmail.com")}
+                    onPress={() => Linking.openURL("mailto:SouqLik01@gmail.com")}
                   >
                     <ThemedText type="body" style={{ color: "#FFFFFF" }}>Envoyer un email</ThemedText>
                   </Pressable>
@@ -324,12 +324,12 @@ export default function ProfileScreen() {
             <ScrollView showsVerticalScrollIndicator={false}>
               <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>1. Acceptation des conditions</ThemedText>
               <ThemedText type="body" style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}>
-                En utilisant l'application SouqLink, vous acceptez d'être lié par les présentes conditions d'utilisation. Si vous n'acceptez pas ces conditions, veuillez ne pas utiliser l'application.
+                En utilisant l'application SouqLik, vous acceptez d'être lié par les présentes conditions d'utilisation. Si vous n'acceptez pas ces conditions, veuillez ne pas utiliser l'application.
               </ThemedText>
 
               <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>2. Description du service</ThemedText>
               <ThemedText type="body" style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}>
-                SouqLink est une plateforme de livraison permettant aux utilisateurs de commander des produits auprès de supermarchés et souqs locaux, et de se faire livrer à domicile.
+                SouqLik est une plateforme de livraison permettant aux utilisateurs de commander des produits auprès de supermarchés et souqs locaux, et de se faire livrer à domicile.
               </ThemedText>
 
               <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>3. Compte utilisateur</ThemedText>
@@ -349,7 +349,7 @@ export default function ProfileScreen() {
 
               <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>6. Contact</ThemedText>
               <ThemedText type="body" style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}>
-                Pour toute question concernant ces conditions, contactez-nous à souqlink01@gmail.com
+                Pour toute question concernant ces conditions, contactez-nous à SouqLik01@gmail.com
               </ThemedText>
             </ScrollView>
           </View>
@@ -394,7 +394,7 @@ export default function ProfileScreen() {
 
               <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>5. Vos droits</ThemedText>
               <ThemedText type="body" style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}>
-                Vous avez le droit d'accéder, de modifier ou de supprimer vos données personnelles. Contactez-nous à souqlink01@gmail.com pour exercer ces droits.
+                Vous avez le droit d'accéder, de modifier ou de supprimer vos données personnelles. Contactez-nous à SouqLik01@gmail.com pour exercer ces droits.
               </ThemedText>
 
               <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>6. Cookies</ThemedText>

@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 
-// SouqLink brand colors
+// SouqLik brand colors
 const primaryGreen = "#10B981"; // Emerald green - fresh produce
 const primaryGreenLight = "#34D399";
 const primaryGreenDark = "#059669";

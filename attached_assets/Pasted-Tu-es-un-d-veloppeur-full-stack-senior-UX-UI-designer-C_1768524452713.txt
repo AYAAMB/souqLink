@@ -1,5 +1,5 @@
 Tu es un développeur full-stack senior + UX/UI designer. 
-Construis une application web/mobile responsive appelée “SouqLink” (MVP), en gardant l’essentiel : le service “Souq” (livraison marchandise) MAIS en ajoutant un changement radical : l’app doit gérer plusieurs types de demandes de livraison.
+Construis une application web/mobile responsive appelée “SouqLik” (MVP), en gardant l’essentiel : le service “Souq” (livraison marchandise) MAIS en ajoutant un changement radical : l’app doit gérer plusieurs types de demandes de livraison.
 
 Objectif :
 Une seule app pour :

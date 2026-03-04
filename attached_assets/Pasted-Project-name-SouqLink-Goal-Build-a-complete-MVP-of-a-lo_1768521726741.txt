@@ -1,20 +1,20 @@
-Project name: SouqLink
+Project name: SouqLik
 
 Goal:
-Build a complete MVP of a local grocery delivery app similar to Glovo, adapted for Action Track validation. The app must allow customers to order groceries from supermarkets using a catalog-style interface, and place free-text orders for traditional souq items. SouqLink manages everything: catalog, orders, couriers, and delivery. Vendors/supermarkets do NOT have accounts or dashboards.
+Build a complete MVP of a local grocery delivery app similar to Glovo, adapted for Action Track validation. The app must allow customers to order groceries from supermarkets using a catalog-style interface, and place free-text orders for traditional souq items. SouqLik manages everything: catalog, orders, couriers, and delivery. Vendors/supermarkets do NOT have accounts or dashboards.
 
 Core concept:
 * Supermarkets are passive suppliers (no login, no profile, no integration).
-* SouqLink manually manages the supermarket catalog.
+* SouqLik manually manages the supermarket catalog.
 * Souq orders have NO catalog (free-text shopping list).
-* All orders are fulfilled by SouqLink student couriers.
+* All orders are fulfilled by SouqLik student couriers.
 * Cash on delivery only.
 * MVP-focused: simple, functional, real-world usable.
 
 User roles (single login system):
 Use ONE Users table with role-based access.
 Roles:
-* admin (SouqLink team)
+* admin (SouqLik team)
 * courier (student delivery)
 * customer (end user)
 

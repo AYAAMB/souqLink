@@ -79,7 +79,7 @@ export default function CustomerTabNavigator() {
         component={ShopScreen}
         options={{
           title: "Shop",
-          headerTitle: () => <HeaderTitle title="SouqLink" />,
+          headerTitle: () => <HeaderTitle title="SouqLik" />,
           tabBarIcon: ({ color, size }) => (
             <Feather name="shopping-bag" size={size} color={color} />
           ),

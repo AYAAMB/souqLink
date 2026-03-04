@@ -64,7 +64,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(409).json({ error: "Email déjà utilisé" });
       }
 
-      const isAdminEmail = cleanEmail === "admin@souqlink.com";
+      const isAdminEmail = cleanEmail === "admin@SouqLik.com";
       const effectiveRole = isAdminEmail ? "admin" : (role || "customer");
 
       const passwordHash = await bcrypt.hash(password, 10);
@@ -179,7 +179,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Role check
-      const isAdminEmail = cleanEmail === "admin@souqlink.com";
+      const isAdminEmail = cleanEmail === "admin@SouqLik.com";
       const isAdmin = user.role === "admin";
 
       if (!isAdminEmail && role && !isAdmin && user.role !== role) {

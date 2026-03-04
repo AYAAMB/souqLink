@@ -222,7 +222,7 @@ export default function LoginScreen() {
 
       if (otpFromApi && Platform.OS === "web") {
         const serviceId =
-          (process.env.EXPO_PUBLIC_EMAILJS_SERVICE_ID as string) || "Souqlink";
+          (process.env.EXPO_PUBLIC_EMAILJS_SERVICE_ID as string) || "SouqLik";
         const templateId =
           (process.env.EXPO_PUBLIC_EMAILJS_TEMPLATE_ID as string) || "template_68k1b0j";
         const publicKey =
@@ -235,7 +235,7 @@ export default function LoginScreen() {
             to_email: cleanEmail,
             otp_code: otpFromApi,
             expires_in: (data as any)?.expiresInMinutes ?? 10,
-            app_name: "SouqLink",
+            app_name: "SouqLik",
           },
           publicKey
         );
@@ -291,7 +291,7 @@ export default function LoginScreen() {
           />
         </View>
         <ThemedText type="h2" style={[styles.title, { color: theme.primary }]}>
-          SouqLink
+          SouqLik
         </ThemedText>
         <ThemedText type="body" style={[styles.subtitle, { color: theme.textSecondary }]}>
           {authMode === "login" ? "Connectez-vous à votre compte" : "Créez votre compte"}

@@ -65,7 +65,7 @@ async function sendOtpByEmailJs(toEmail: string, otp: string) {
       to_email: toEmail,
       otp_code: otp,
       expires_in: OTP_WINDOW_MIN,
-      app_name: "SouqLink",
+      app_name: "SouqLik",
     },
   };
 
@@ -149,7 +149,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(409).json({ error: "Email déjà utilisé" });
       }
 
-      const isAdminEmail = cleanEmail === "admin@souqlink.com";
+      const isAdminEmail = cleanEmail === "admin@SouqLik.com";
       const effectiveRole: UserRole = isAdminEmail ? "admin" : (role ?? "customer");
 
       const passwordHash = await bcrypt.hash(password, 10);
@@ -274,7 +274,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const dbRole = normalizeRole(user.role);
       const askedRole = role ? normalizeRole(role) : undefined;
 
-      const isAdminEmail = cleanEmail === "admin@souqlink.com";
+      const isAdminEmail = cleanEmail === "admin@SouqLik.com";
       const isAdmin = dbRole === "admin";
 
       if (!isAdminEmail && askedRole && !isAdmin && dbRole !== askedRole) {

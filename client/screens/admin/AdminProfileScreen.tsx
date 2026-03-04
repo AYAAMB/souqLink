@@ -212,7 +212,7 @@ export default function AdminProfileScreen() {
         </Button>
 
         <ThemedText type="small" style={[styles.version, { color: theme.textSecondary }]}>
-          SouqLink Admin v1.0.0
+          SouqLik Admin v1.0.0
         </ThemedText>
       </KeyboardAwareScrollViewCompat>
 

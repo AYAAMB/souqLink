@@ -1,23 +1,23 @@
 {
   "expo": {
-    "name": "SouqLink",
-    "slug": "souqlink",
+    "name": "SouqLik",
+    "slug": "SouqLik",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "souqlink",
+    "scheme": "SouqLik",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.souqlink.app"
+      "bundleIdentifier": "com.SouqLik.app"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#10B981",
         "foregroundImage": "./assets/images/icon.png"
       },
-      "package": "com.souqlink.app",
+      "package": "com.SouqLik.app",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
@@ -45,8 +45,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow SouqLink to access your photos for product images.",
-          "cameraPermission": "Allow SouqLink to use your camera for product images."
+          "photosPermission": "Allow SouqLik to access your photos for product images.",
+          "cameraPermission": "Allow SouqLik to use your camera for product images."
         }
       ],
       [
