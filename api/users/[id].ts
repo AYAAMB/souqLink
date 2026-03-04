@@ -2,17 +2,19 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getSql } from "../_db";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // ✅ Préflight CORS
-  if (req.method === "OPTIONS") {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS,PATCH,DELETE,POST,PUT");
-    res.setHeader(
-      "Access-Control-Allow-Headers",
-      "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization"
-    );
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    return res.status(204).end();
-  }
+  // ✅ CORS (valable pour OPTIONS + PUT)
+  const origin = req.headers.origin ?? "*";
+  res.setHeader("Access-Control-Allow-Origin", origin);
+  res.setHeader("Vary", "Origin");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS,PATCH,DELETE,POST,PUT");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-Requested-With, Accept"
+  );
+
+  // ✅ Préflight
+  if (req.method === "OPTIONS") return res.status(204).end();
 
   // ✅ Autoriser PUT (et PATCH si tu veux)
   if (req.method !== "PUT" && req.method !== "PATCH") {
