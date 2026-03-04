@@ -36,6 +36,17 @@ export default function CourierProfileScreen() {
   const [editName, setEditName] = useState(user?.name || "");
   const [editPhone, setEditPhone] = useState(user?.phone || "");
 
+  // ✅ FIX: parsing date robuste (Neon peut renvoyer "YYYY-MM-DD HH:mm:ss")
+  function parseDateSafe(value?: string) {
+    if (!value) return null;
+
+    // Cas Neon/Postgres: "YYYY-MM-DD HH:mm:ss" => convertir en ISO
+    const normalized = value.includes("T") ? value : value.replace(" ", "T") + "Z";
+    const d = new Date(normalized);
+
+    return isNaN(d.getTime()) ? null : d;
+  }
+
   const { data: stats } = useQuery<{
     totalDeliveries: number;
     completedDeliveries: number;
@@ -47,11 +58,12 @@ export default function CourierProfileScreen() {
   });
 
   const { data: deliveryHistory = [] } = useQuery<Order[]>({
-    queryKey: [`/api/orders/courier/${user?.email}`],
+    queryKey: [`/api/orders/courier/${encodeURIComponent(user?.email ?? "")}`],
     enabled: !!user?.email && historyModalVisible,
   });
 
-  const completedDeliveries = deliveryHistory.filter(o => o.status === "delivered");
+  // ✅ FIX: status peut être "DELIVERED" / "delivered" / "Delivered"
+  const completedDeliveries = deliveryHistory.filter((o) => (o.status ?? "").toLowerCase() === "delivered");
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: { name: string; phone: string }) => {
@@ -128,7 +140,9 @@ export default function CourierProfileScreen() {
         </View>
 
         <View style={[styles.statsCard, { backgroundColor: theme.backgroundDefault }]}>
-          <ThemedText type="h4" style={styles.statsTitle}>Mes statistiques</ThemedText>
+          <ThemedText type="h4" style={styles.statsTitle}>
+            Mes statistiques
+          </ThemedText>
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
               <ThemedText type="h2" style={{ color: theme.primary }}>
@@ -211,12 +225,7 @@ export default function CourierProfileScreen() {
         </ThemedText>
       </KeyboardAwareScrollViewCompat>
 
-      <Modal
-        visible={editModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setEditModalVisible(false)}
-      >
+      <Modal visible={editModalVisible} animationType="slide" transparent={true} onRequestClose={() => setEditModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}>
             <View style={styles.modalHeader}>
@@ -227,7 +236,9 @@ export default function CourierProfileScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <ThemedText type="small" style={styles.inputLabel}>Nom</ThemedText>
+              <ThemedText type="small" style={styles.inputLabel}>
+                Nom
+              </ThemedText>
               <TextInput
                 style={[styles.input, { backgroundColor: theme.backgroundRoot, color: theme.text, borderColor: theme.border }]}
                 value={editName}
@@ -238,7 +249,9 @@ export default function CourierProfileScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <ThemedText type="small" style={styles.inputLabel}>Téléphone</ThemedText>
+              <ThemedText type="small" style={styles.inputLabel}>
+                Téléphone
+              </ThemedText>
               <TextInput
                 style={[styles.input, { backgroundColor: theme.backgroundRoot, color: theme.text, borderColor: theme.border }]}
                 value={editPhone}
@@ -250,10 +263,7 @@ export default function CourierProfileScreen() {
             </View>
 
             <View style={styles.modalButtons}>
-              <Button
-                onPress={() => setEditModalVisible(false)}
-                style={[styles.cancelButton, { backgroundColor: theme.border }]}
-              >
+              <Button onPress={() => setEditModalVisible(false)} style={[styles.cancelButton, { backgroundColor: theme.border }]}>
                 Annuler
               </Button>
               <Button
@@ -268,12 +278,7 @@ export default function CourierProfileScreen() {
         </View>
       </Modal>
 
-      <Modal
-        visible={historyModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setHistoryModalVisible(false)}
-      >
+      <Modal visible={historyModalVisible} animationType="slide" transparent={true} onRequestClose={() => setHistoryModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContentFull, { backgroundColor: theme.backgroundDefault }]}>
             <View style={styles.modalHeader}>
@@ -287,31 +292,43 @@ export default function CourierProfileScreen() {
               <FlatList
                 data={completedDeliveries}
                 keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <View style={[styles.historyItem, { backgroundColor: theme.backgroundRoot }]}>
-                    <View style={styles.historyHeader}>
-                      <View style={[styles.orderTypeBadge, { backgroundColor: item.orderType === "souq" ? theme.accent + "20" : theme.primary + "20" }]}>
-                        <Feather 
-                          name={item.orderType === "souq" ? "shopping-bag" : "shopping-cart"} 
-                          size={14} 
-                          color={item.orderType === "souq" ? theme.accent : theme.primary} 
-                        />
-                        <ThemedText type="small" style={{ marginLeft: Spacing.xs, color: item.orderType === "souq" ? theme.accent : theme.primary }}>
-                          {item.orderType === "souq" ? "Souq" : "Supermarché"}
+                renderItem={({ item }) => {
+                  const d = parseDateSafe(item.createdAt);
+                  return (
+                    <View style={[styles.historyItem, { backgroundColor: theme.backgroundRoot }]}>
+                      <View style={styles.historyHeader}>
+                        <View
+                          style={[
+                            styles.orderTypeBadge,
+                            { backgroundColor: item.orderType === "souq" ? theme.accent + "20" : theme.primary + "20" },
+                          ]}
+                        >
+                          <Feather
+                            name={item.orderType === "souq" ? "shopping-bag" : "shopping-cart"}
+                            size={14}
+                            color={item.orderType === "souq" ? theme.accent : theme.primary}
+                          />
+                          <ThemedText
+                            type="small"
+                            style={{ marginLeft: Spacing.xs, color: item.orderType === "souq" ? theme.accent : theme.primary }}
+                          >
+                            {item.orderType === "souq" ? "Souq" : "Supermarché"}
+                          </ThemedText>
+                        </View>
+                        <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                          {d ? d.toLocaleDateString("fr-FR") : "Date inconnue"}
                         </ThemedText>
                       </View>
-                      <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                        {new Date(item.createdAt).toLocaleDateString("fr-FR")}
+
+                      <ThemedText type="body" numberOfLines={1} style={{ marginTop: Spacing.sm }}>
+                        {item.deliveryAddress}
+                      </ThemedText>
+                      <ThemedText type="body" style={{ color: theme.primary, marginTop: Spacing.xs }}>
+                        {item.totalAmount} MAD
                       </ThemedText>
                     </View>
-                    <ThemedText type="body" numberOfLines={1} style={{ marginTop: Spacing.sm }}>
-                      {item.deliveryAddress}
-                    </ThemedText>
-                    <ThemedText type="body" style={{ color: theme.primary, marginTop: Spacing.xs }}>
-                      {item.totalAmount} MAD
-                    </ThemedText>
-                  </View>
-                )}
+                  );
+                }}
                 contentContainerStyle={{ paddingBottom: Spacing.xl }}
                 showsVerticalScrollIndicator={false}
               />
@@ -327,12 +344,7 @@ export default function CourierProfileScreen() {
         </View>
       </Modal>
 
-      <Modal
-        visible={helpModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setHelpModalVisible(false)}
-      >
+      <Modal visible={helpModalVisible} animationType="slide" transparent={true} onRequestClose={() => setHelpModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContentFull, { backgroundColor: theme.backgroundDefault }]}>
             <View style={styles.modalHeader}>
@@ -350,11 +362,13 @@ export default function CourierProfileScreen() {
                   <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
                     Notre équipe est disponible 7j/7
                   </ThemedText>
-                  <Pressable 
+                  <Pressable
                     style={[styles.helpButton, { backgroundColor: theme.primary }]}
                     onPress={() => Linking.openURL("tel:+212690201336")}
                   >
-                    <ThemedText type="body" style={{ color: "#FFFFFF" }}>Appeler le support</ThemedText>
+                    <ThemedText type="body" style={{ color: "#FFFFFF" }}>
+                      Appeler le support
+                    </ThemedText>
                   </Pressable>
                 </View>
               </View>
@@ -366,11 +380,13 @@ export default function CourierProfileScreen() {
                   <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
                     souqlink01@gmail.com
                   </ThemedText>
-                  <Pressable 
+                  <Pressable
                     style={[styles.helpButton, { backgroundColor: theme.accent }]}
-                      onPress={() => Linking.openURL("mailto:souqlink01@gmail.com")}
-                    >
-                    <ThemedText type="body" style={{ color: "#FFFFFF" }}>Envoyer un email</ThemedText>
+                    onPress={() => Linking.openURL("mailto:souqlink01@gmail.com")}
+                  >
+                    <ThemedText type="body" style={{ color: "#FFFFFF" }}>
+                      Envoyer un email
+                    </ThemedText>
                   </Pressable>
                 </View>
               </View>
@@ -386,24 +402,32 @@ export default function CourierProfileScreen() {
               </View>
 
               <View style={{ marginTop: Spacing.lg }}>
-                <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>Questions fréquentes</ThemedText>
-                
+                <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>
+                  Questions fréquentes
+                </ThemedText>
+
                 <View style={[styles.faqItem, { backgroundColor: theme.backgroundRoot }]}>
-                  <ThemedText type="body" style={{ fontWeight: "600" }}>Comment accepter une livraison ?</ThemedText>
+                  <ThemedText type="body" style={{ fontWeight: "600" }}>
+                    Comment accepter une livraison ?
+                  </ThemedText>
                   <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
                     Dans l'onglet "Livraisons", vous verrez les commandes disponibles. Appuyez sur "Accepter" pour prendre en charge une livraison.
                   </ThemedText>
                 </View>
 
                 <View style={[styles.faqItem, { backgroundColor: theme.backgroundRoot }]}>
-                  <ThemedText type="body" style={{ fontWeight: "600" }}>Comment voir mes gains ?</ThemedText>
+                  <ThemedText type="body" style={{ fontWeight: "600" }}>
+                    Comment voir mes gains ?
+                  </ThemedText>
                   <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
                     Vos gains totaux sont affichés dans la section "Mes statistiques" de votre profil.
                   </ThemedText>
                 </View>
 
                 <View style={[styles.faqItem, { backgroundColor: theme.backgroundRoot }]}>
-                  <ThemedText type="body" style={{ fontWeight: "600" }}>Comment utiliser la navigation ?</ThemedText>
+                  <ThemedText type="body" style={{ fontWeight: "600" }}>
+                    Comment utiliser la navigation ?
+                  </ThemedText>
                   <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
                     Après avoir accepté une livraison, appuyez sur "Naviguer" pour ouvrir l'itinéraire vers l'adresse de livraison.
                   </ThemedText>
