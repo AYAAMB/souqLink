@@ -42,7 +42,7 @@ export default function CourierProfileScreen() {
     totalEarnings: number;
     averageRating: number;
   }>({
-    queryKey: [`/api/couriers/stats/${user?.email}`],
+    queryKey: [`/api/couriers/stats/${encodeURIComponent(user?.email ?? "")}`],
     enabled: !!user?.email,
   });
 
