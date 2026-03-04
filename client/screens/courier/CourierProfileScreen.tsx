@@ -57,10 +57,25 @@ export default function CourierProfileScreen() {
     enabled: !!user?.email,
   });
 
-  const { data: deliveryHistory = [] } = useQuery<Order[]>({
-    queryKey: [`/api/orders/courier/${encodeURIComponent(user?.email ?? "")}`],
-    enabled: !!user?.email && historyModalVisible,
-  });
+  const {
+  data: deliveryHistory = [],
+  error,
+  isLoading,
+} = useQuery<Order[]>({
+  queryKey: [`/api/orders/courier/${encodeURIComponent(user?.email ?? "")}`],
+  enabled: !!user?.email && historyModalVisible,
+  queryFn: async () => {
+    const r = await apiRequest(
+      "GET",
+      `/api/orders/courier/${encodeURIComponent(user?.email ?? "")}`
+    );
+    if (!r.ok) {
+      const txt = await r.text();
+      throw new Error(`HTTP ${r.status}: ${txt}`);
+    }
+    return r.json();
+  },
+});
 
   // ✅ FIX: status peut être "DELIVERED" / "delivered" / "Delivered"
   const completedDeliveries = deliveryHistory.filter((o) => (o.status ?? "").toLowerCase() === "delivered");
