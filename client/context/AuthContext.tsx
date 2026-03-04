@@ -71,11 +71,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ✅ Connexion
   const login = async (email: string, password: string, role: UserRole = "customer") => {
     try {
-      const response = await apiRequest("POST", "/api/auth/login", {
-        email,
-        password,
-        role,
-      });
+  const response = await apiRequest("POST", "/api/auth", {
+    email,
+    password,
+    role,
+  });
 
       const data = await safeJson(response);
 
