@@ -8,7 +8,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const sql = getSql();
 
   const rows = await sql`
-    select *
+    select
+      id,
+      order_type as "orderType",
+      lower(status) as status,
+      total_amount as "totalAmount",
+      delivery_address as "deliveryAddress",
+      assigned_courier_email as "assignedCourierEmail",
+      to_char(created_at at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "createdAt"
     from public.orders
     where lower(assigned_courier_email) = lower(${String(email)})
     order by created_at desc
