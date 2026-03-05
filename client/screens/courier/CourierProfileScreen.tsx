@@ -45,6 +45,35 @@ type OrderUI = {
   deliveryAddress: string;
 };
 
+/**
+ * ✅ AJOUT (sans supprimer) : types Stats (API peut renvoyer des noms différents)
+ */
+type CourierStatsRaw = {
+  // cas camelCase
+  totalDeliveries?: number;
+  completedDeliveries?: number;
+  totalEarnings?: number;
+  averageRating?: number;
+
+  // cas ancien endpoint (ex: totalAssigned/delivered/active)
+  totalAssigned?: number;
+  delivered?: number;
+  active?: number;
+
+  // cas snake_case éventuel
+  total_deliveries?: number;
+  completed_deliveries?: number;
+  total_earnings?: number;
+  average_rating?: number;
+};
+
+type CourierStatsUI = {
+  totalDeliveries: number;
+  completedDeliveries: number;
+  totalEarnings: number;
+  averageRating: number | null;
+};
+
 export default function CourierProfileScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
@@ -69,15 +98,34 @@ export default function CourierProfileScreen() {
     return isNaN(d.getTime()) ? null : d;
   }
 
-  const { data: stats } = useQuery<{
-    totalDeliveries: number;
-    completedDeliveries: number;
-    totalEarnings: number;
-    averageRating: number;
-  }>({
+  /**
+   * ✅ MODIF (sans supprimer) : on ajoute queryFn + mapping des noms possibles
+   */
+  const { data: statsRaw } = useQuery<CourierStatsRaw>({
     queryKey: [`/api/couriers/stats/${encodeURIComponent(user?.email ?? "")}`],
     enabled: !!user?.email,
+    queryFn: async () => {
+      const r = await apiRequest("GET", `/api/couriers/stats/${encodeURIComponent(user?.email ?? "")}`);
+      if (!r.ok) {
+        const txt = await r.text();
+        throw new Error(`HTTP ${r.status}: ${txt}`);
+      }
+      return r.json();
+    },
   });
+
+  // ✅ Normalisation stats : plusieurs noms acceptés (camelCase / snake_case / ancien endpoint)
+  const stats: CourierStatsUI = {
+    totalDeliveries: Number(statsRaw?.totalDeliveries ?? statsRaw?.total_deliveries ?? statsRaw?.totalAssigned ?? 0),
+    completedDeliveries: Number(statsRaw?.completedDeliveries ?? statsRaw?.completed_deliveries ?? statsRaw?.delivered ?? 0),
+    totalEarnings: Number(statsRaw?.totalEarnings ?? statsRaw?.total_earnings ?? 0),
+    averageRating: (() => {
+      const v = statsRaw?.averageRating ?? statsRaw?.average_rating;
+      if (v === undefined || v === null) return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    })(),
+  };
 
   /**
    * ✅ MODIF (sans supprimer) : on récupère les rows au format Neon
@@ -194,7 +242,7 @@ export default function CourierProfileScreen() {
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
               <ThemedText type="h2" style={{ color: theme.primary }}>
-                {stats?.completedDeliveries || 0}
+                {stats.completedDeliveries || 0}
               </ThemedText>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>
                 Livraisons
@@ -202,7 +250,7 @@ export default function CourierProfileScreen() {
             </View>
             <View style={styles.statItem}>
               <ThemedText type="h2" style={{ color: theme.accent }}>
-                {stats?.totalEarnings || 0} MAD
+                {stats.totalEarnings || 0} MAD
               </ThemedText>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>
                 Gains totaux
@@ -212,7 +260,7 @@ export default function CourierProfileScreen() {
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <Feather name="star" size={18} color="#FFD700" />
                 <ThemedText type="h2" style={{ marginLeft: Spacing.xs }}>
-                  {stats?.averageRating?.toFixed(1) || "N/A"}
+                  {stats.averageRating !== null ? stats.averageRating.toFixed(1) : "N/A"}
                 </ThemedText>
               </View>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>
@@ -336,9 +384,7 @@ export default function CourierProfileScreen() {
             {isLoading ? (
               <ThemedText style={{ marginBottom: Spacing.md }}>Chargement...</ThemedText>
             ) : error ? (
-              <ThemedText style={{ marginBottom: Spacing.md }}>
-                Erreur: {(error as Error).message}
-              </ThemedText>
+              <ThemedText style={{ marginBottom: Spacing.md }}>Erreur: {(error as Error).message}</ThemedText>
             ) : null}
 
             {completedDeliveries.length > 0 ? (
@@ -415,10 +461,7 @@ export default function CourierProfileScreen() {
                   <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
                     Notre équipe est disponible 7j/7
                   </ThemedText>
-                  <Pressable
-                    style={[styles.helpButton, { backgroundColor: theme.primary }]}
-                    onPress={() => Linking.openURL("tel:+212690201336")}
-                  >
+                  <Pressable style={[styles.helpButton, { backgroundColor: theme.primary }]} onPress={() => Linking.openURL("tel:+212690201336")}>
                     <ThemedText type="body" style={{ color: "#FFFFFF" }}>
                       Appeler le support
                     </ThemedText>
@@ -433,10 +476,7 @@ export default function CourierProfileScreen() {
                   <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
                     SouqLik01@gmail.com
                   </ThemedText>
-                  <Pressable
-                    style={[styles.helpButton, { backgroundColor: theme.accent }]}
-                    onPress={() => Linking.openURL("mailto:SouqLik01@gmail.com")}
-                  >
+                  <Pressable style={[styles.helpButton, { backgroundColor: theme.accent }]} onPress={() => Linking.openURL("mailto:SouqLik01@gmail.com")}>
                     <ThemedText type="body" style={{ color: "#FFFFFF" }}>
                       Envoyer un email
                     </ThemedText>
