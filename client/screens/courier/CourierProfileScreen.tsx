@@ -23,6 +23,28 @@ interface Order {
   deliveryAddress: string;
 }
 
+/**
+ * ✅ AJOUT (sans supprimer) : types correspondant aux colonnes Neon
+ * orders: order_type, delivery_address, created_at, final_total, status
+ */
+type OrderRowNeon = {
+  id: string;
+  order_type?: string;
+  status?: string;
+  final_total?: number | string | null;
+  delivery_address?: string | null;
+  created_at?: string | null;
+};
+
+type OrderUI = {
+  id: string;
+  orderType: string;
+  status: string;
+  totalAmount: number;
+  createdAt: string;
+  deliveryAddress: string;
+};
+
 export default function CourierProfileScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
@@ -57,25 +79,36 @@ export default function CourierProfileScreen() {
     enabled: !!user?.email,
   });
 
+  /**
+   * ✅ MODIF (sans supprimer) : on récupère les rows au format Neon
+   * puis on les mappe vers OrderUI (camelCase attendu par l'UI).
+   */
   const {
-  data: deliveryHistory = [],
-  error,
-  isLoading,
-} = useQuery<Order[]>({
-  queryKey: [`/api/orders/courier/${encodeURIComponent(user?.email ?? "")}`],
-  enabled: !!user?.email && historyModalVisible,
-  queryFn: async () => {
-    const r = await apiRequest(
-      "GET",
-      `/api/orders/courier/${encodeURIComponent(user?.email ?? "")}`
-    );
-    if (!r.ok) {
-      const txt = await r.text();
-      throw new Error(`HTTP ${r.status}: ${txt}`);
-    }
-    return r.json();
-  },
-});
+    data: deliveryHistoryRaw = [],
+    error,
+    isLoading,
+  } = useQuery<OrderRowNeon[]>({
+    queryKey: [`/api/orders/courier/${encodeURIComponent(user?.email ?? "")}`],
+    enabled: !!user?.email && historyModalVisible,
+    queryFn: async () => {
+      const r = await apiRequest("GET", `/api/orders/courier/${encodeURIComponent(user?.email ?? "")}`);
+      if (!r.ok) {
+        const txt = await r.text();
+        throw new Error(`HTTP ${r.status}: ${txt}`);
+      }
+      return r.json();
+    },
+  });
+
+  // ✅ Normalisation: Neon -> UI (order_type -> orderType, final_total -> totalAmount, created_at -> createdAt, delivery_address -> deliveryAddress)
+  const deliveryHistory: OrderUI[] = (deliveryHistoryRaw ?? []).map((o) => ({
+    id: String(o.id),
+    orderType: String(o.order_type ?? ""),
+    status: String(o.status ?? ""),
+    totalAmount: Number(o.final_total ?? 0),
+    createdAt: String(o.created_at ?? ""),
+    deliveryAddress: String(o.delivery_address ?? ""),
+  }));
 
   // ✅ FIX: status peut être "DELIVERED" / "delivered" / "Delivered"
   const completedDeliveries = deliveryHistory.filter((o) => (o.status ?? "").toLowerCase() === "delivered");
@@ -281,11 +314,7 @@ export default function CourierProfileScreen() {
               <Button onPress={() => setEditModalVisible(false)} style={[styles.cancelButton, { backgroundColor: theme.border }]}>
                 Annuler
               </Button>
-              <Button
-                onPress={handleSaveProfile}
-                style={{ flex: 1, marginLeft: Spacing.md }}
-                disabled={updateProfileMutation.isPending}
-              >
+              <Button onPress={handleSaveProfile} style={{ flex: 1, marginLeft: Spacing.md }} disabled={updateProfileMutation.isPending}>
                 {updateProfileMutation.isPending ? "Enregistrement..." : "Enregistrer"}
               </Button>
             </View>
@@ -302,6 +331,15 @@ export default function CourierProfileScreen() {
                 <Feather name="x" size={24} color={theme.text} />
               </Pressable>
             </View>
+
+            {/* ✅ AJOUT (sans supprimer) : affichage loading/erreur pour debug */}
+            {isLoading ? (
+              <ThemedText style={{ marginBottom: Spacing.md }}>Chargement...</ThemedText>
+            ) : error ? (
+              <ThemedText style={{ marginBottom: Spacing.md }}>
+                Erreur: {(error as Error).message}
+              </ThemedText>
+            ) : null}
 
             {completedDeliveries.length > 0 ? (
               <FlatList
